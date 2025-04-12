@@ -454,10 +454,11 @@ serve(async (req) => {
         );
 
         // Fetch task's section, project, and condition for permission/logic checks
+        // Fetch task's section, project, condition, self-service status, and assignee for permission/logic checks
         const { data: taskToCheck, error: checkError } = await supabaseClient
           .from('tasks')
           .select(
-            'id, condition, depends_on_task_id, section_id, sections ( project_id, projects ( company_id ) )', // Include condition and depends_on_task_id
+            'id, condition, depends_on_task_id, section_id, is_self_service, assigned_to_id, sections ( project_id, projects ( company_id ) )', // Added is_self_service, assigned_to_id
           )
           .eq('id', taskId)
           .single();
@@ -486,11 +487,10 @@ serve(async (req) => {
           );
         }
 
-        // Permission check: Staff or user with 'task:manage'
-        // TODO(permissions): Refine for self-service updates (e.g., allow assigned user to update status/hours) if needed.
+        // Permission check: Staff, user with 'task:manage', or assigned user if self-service
         const { data: permissionData, error: permissionError } =
           await supabaseClient.rpc(
-            'has_permission',
+            'has_permission', // Checks for 'task:manage'
             {
               user_id: user.id,
               company_id: projectCompanyId,
@@ -503,9 +503,14 @@ serve(async (req) => {
           .single();
         if (profileError) throw profileError;
 
-        if (!profile?.is_staff && !permissionData) {
-          console.error(`User ${user.id} not authorized to manage tasks.`);
-          return createForbiddenResponse();
+        // Check if user has manage permission OR is staff OR is assigned to a self-service task
+        const isSelfServiceAssignee = taskToCheck.is_self_service && taskToCheck.assigned_to_id === user.id;
+
+        if (!profile?.is_staff && !permissionData && !isSelfServiceAssignee) {
+          console.error(
+            `User ${user.id} not authorized to update task ${taskId}. Staff: ${profile?.is_staff}, HasManagePerm: ${permissionData}, IsSelfServiceAssignee: ${isSelfServiceAssignee}`,
+          );
+          return createForbiddenResponse('Not authorized to update this task');
         }
 
         // Parse request body

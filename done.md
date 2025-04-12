@@ -4,6 +4,7 @@
 -   **Tasks Function:** Added circular dependency check using a new PostgreSQL helper function (`check_task_circular_dependency`) called via RPC during task updates (PUT). Prevents setting a `depends_on_task_id` that would create a loop. (Migration: `20250415100000_add_circular_dependency_check.sql`, Function: `supabase/functions/tasks/index.ts`)
 -   **Task Files Function:** Implemented specific error handling for database constraints (FK violation, NOT NULL) and Storage API errors during file upload (POST) and deletion (DELETE). (`supabase/functions/task-files/index.ts`)
 -   **Task Comments Function:** Added permission check to allow staff users to delete any task comment, in addition to the original author. (`supabase/functions/task-comments/index.ts`)
+-   **Tasks Function:** Refined permission check in PUT handler to allow assigned users to update tasks flagged as `is_self_service`, aligning function logic with RLS policy. (`supabase/functions/tasks/index.ts`)
 
 ## 2025-04-14
 
