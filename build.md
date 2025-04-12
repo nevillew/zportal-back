@@ -60,13 +60,13 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Create RPC function for `view_time_tracking_summary` (accept filters, query view, apply RLS, return data).
     - [x] Create RPC function for `view_effort_variance` (accept filters, query view, apply RLS, return data).
     - [x] Create RPC function for `view_milestone_status` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_company_training_compliance` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_open_risks_issues` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_template_performance` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_client_engagement_summary` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_onboarding_cycle_time` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_document_usage` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_custom_field_analysis` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_company_training_compliance` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_open_risks_issues` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_template_performance` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_client_engagement_summary` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_onboarding_cycle_time` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_document_usage` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_custom_field_analysis` (accept filters, query view, apply RLS, return data).
 - [ ] **Time Tracking Endpoints:** (If needed beyond PostgREST)
     - [ ] Create Edge Function/RPC for Start Timer.
     - [ ] Create Edge Function/RPC for Stop Timer (calculates duration, creates `time_entries`).
