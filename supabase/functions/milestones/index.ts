@@ -375,7 +375,6 @@ serve(async (req) => {
              await logFailure(supabaseClient, 'milestone-approval-notification', { milestoneId }, notifyError);
           }
           // --- End Notification ---
-          );
           return new Response(JSON.stringify(approvedMilestone), {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
