@@ -3,6 +3,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
 
@@ -30,11 +35,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
 
     console.log(`Handling ${req.method} request for user ${user.id}`);
@@ -74,13 +75,7 @@ serve(async (req) => {
             console.log(
               `Section ${sectionId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Section not found or access denied' }),
-              {
-                status: 404, // Not Found or Forbidden
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Section not found or access denied');
           }
 
           // No complex joins needed for sections currently, return as is
@@ -108,13 +103,7 @@ serve(async (req) => {
             console.log(
               `Project ${projectId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Project not found or access denied' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Project not found or access denied');
           }
 
           // Fetch sections for the specified project
@@ -184,10 +173,8 @@ serve(async (req) => {
           .eq('id', targetProjectId)
           .single();
         if (checkError || !projectToCheck) {
-          return new Response(JSON.stringify({ error: 'Project not found' }), {
-            status: 404, // Use 404 for not found
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          // If project_id is invalid/not found, treat as bad request or not found
+          return createNotFoundResponse('Project not found');
         }
         const projectCompanyId = projectToCheck.company_id;
 
@@ -211,13 +198,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to manage sections for project ${targetProjectId}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Insert new section
@@ -275,14 +256,8 @@ serve(async (req) => {
             `Error fetching section ${sectionId} for permission check or section/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Section or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Section or associated project/company not found',
           );
         }
 
@@ -306,13 +281,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to manage sections for project ${sectionToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Parse request body
@@ -410,14 +379,8 @@ serve(async (req) => {
             `Error fetching section ${sectionId} for permission check or section/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Section or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Section or associated project/company not found',
           );
         }
 
@@ -441,13 +404,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to manage sections for project ${sectionToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Delete the section (RLS should handle this)
@@ -474,20 +431,10 @@ serve(async (req) => {
       }
       default:
         console.warn(`Method ${req.method} not allowed for /sections`);
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    // Use generic 500 for now, specific handlers should throw specific errors
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });

@@ -7,7 +7,12 @@ import {
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
-  createValidationErrorResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
+  // createValidationErrorResponse, // Keep if needed for future validation
 } from '../_shared/validation.ts'; // Import helpers
 
 console.log('Task Files function started');
@@ -44,10 +49,7 @@ serve(async (req) => {
       ? e.message
       : 'Unknown error during setup';
     console.error('Auth/Client Error:', setupErrorMessage);
-    return new Response(JSON.stringify({ error: 'Authentication failed' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createUnauthorizedResponse('Authentication failed');
   }
 
   const url = new URL(req.url);
@@ -96,13 +98,7 @@ serve(async (req) => {
           console.warn(
             `User ${user.id} tried to list files for non-existent or inaccessible task ${taskId}`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Task not found or access denied' }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createNotFoundResponse('Task not found or access denied');
         }
         // --- End Permission Check ---
 
@@ -185,14 +181,8 @@ serve(async (req) => {
             `Error fetching task ${taskId} for permission check or task not found:`,
             taskCheckError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Task not found or error checking permissions',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Task not found or error checking permissions',
           );
         }
         // Use 'any' cast to bypass complex type inference issue (TS2339)
@@ -201,15 +191,8 @@ serve(async (req) => {
             (taskCheck?.sections as any)?.projects?.company_id;
         if (!projectCompanyId) {
           console.error(`Could not determine company ID for task ${taskId}`);
-          return new Response(
-            JSON.stringify({
-              error:
-                'Internal Server Error: Project/Company information not available for task',
-            }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createInternalServerErrorResponse(
+            'Project/Company information not available for task',
           );
         }
 
@@ -233,13 +216,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to upload files for task ${taskId}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
         // --- End Permission Check ---
 
@@ -360,10 +337,11 @@ serve(async (req) => {
           const message = fetchError.code === 'PGRST116'
             ? 'File record not found'
             : 'Error fetching file record';
-          return new Response(JSON.stringify({ error: message }), {
-            status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          if (status === 404) {
+            return createNotFoundResponse(message);
+          } else {
+            return createInternalServerErrorResponse(message);
+          }
         }
         // --- End Fetch File Record ---
 
@@ -425,14 +403,8 @@ serve(async (req) => {
           );
           // Fallback to denying if company context is missing, unless uploader
           if (!isUploader) {
-            return new Response(
-              JSON.stringify({
-                error: 'Internal error determining permissions',
-              }),
-              {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createInternalServerErrorResponse(
+              'Internal error determining permissions',
             );
           }
         }
@@ -441,15 +413,7 @@ serve(async (req) => {
           console.warn(
             `User ${user.id} attempted to delete file ${fileId} without permission.`,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Forbidden: Not authorized to delete this file',
-            }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse('Not authorized to delete this file');
         }
         // --- End Permission Check ---
 
@@ -495,20 +459,10 @@ serve(async (req) => {
         return new Response(null, { status: 204, headers: { ...corsHeaders } });
       }
       default:
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Request Handling Error:', errorMessage);
-    // Use generic 500 for now, specific handlers should throw specific errors
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });

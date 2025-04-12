@@ -1,7 +1,15 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { createBadRequestResponse, createValidationErrorResponse } from '../_shared/validation.ts'; // Import helpers
+import {
+  createBadRequestResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
+  createValidationErrorResponse,
+} from '../_shared/validation.ts'; // Import helpers
 
 console.log('Tasks function started');
 
@@ -39,11 +47,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
 
     console.log(`Handling ${req.method} request for user ${user.id}`); // Reverted incorrect fix
@@ -163,13 +167,7 @@ serve(async (req) => {
             console.log(
               `Section ${sectionId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Section not found or access denied' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Section not found or access denied');
           }
 
           // Fetch tasks for the specified section
@@ -230,13 +228,7 @@ serve(async (req) => {
             console.log(
               `Project ${projectId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Project not found or access denied' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Project not found or access denied');
           }
 
           // Fetch tasks by joining through sections
@@ -328,13 +320,7 @@ serve(async (req) => {
           .single();
 
         if (checkError || !sectionToCheck) {
-          return new Response(
-            JSON.stringify({ error: 'Section not found or access denied' }),
-            {
-              status: 404, // Use 404 for not found / access denied
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createNotFoundResponse('Section not found or access denied');
         }
 
         // The join might return an array even with .single(), addressing TS2339
@@ -342,13 +328,7 @@ serve(async (req) => {
         const projectCompanyId = (sectionToCheck?.projects as any)?.[0]?.company_id ?? (sectionToCheck?.projects as any)?.company_id;
         if (!projectCompanyId) {
           console.error(`Could not determine company ID for section ${targetSectionId}`);
-          return new Response(
-            JSON.stringify({ error: 'Internal Server Error: Project information not available' }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createInternalServerErrorResponse('Project information not available');
         }
 
         // Permission check: Staff or user with 'task:manage'
@@ -371,13 +351,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to manage tasks for section ${targetSectionId}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Get max order value for the section to place new task at the end
@@ -499,10 +473,7 @@ serve(async (req) => {
             `Error fetching task ${taskId} or task not found:`,
             checkError?.message,
           );
-          return new Response(JSON.stringify({ error: 'Task not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return createNotFoundResponse('Task not found');
         }
 
         // Using 'any' cast to bypass complex type inference issue (TS2339)
@@ -540,13 +511,7 @@ serve(async (req) => {
 
         if (!profile?.is_staff && !permissionData) {
           console.error(`User ${user.id} not authorized to manage tasks.`);
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Parse request body
@@ -640,13 +605,7 @@ serve(async (req) => {
         if (updateError) {
           console.error(`Error updating task ${taskId}:`, updateError.message);
           if (updateError.code === 'PGRST204') { // No rows updated/selected
-            return new Response(
-              JSON.stringify({ error: 'Task not found or update failed' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Task not found or update failed');
           }
           // TODO(db-error): Handle other specific DB errors (e.g., FK violation, unique constraint) with appropriate 4xx status codes.
           throw updateError;
@@ -720,10 +679,7 @@ serve(async (req) => {
             `Error fetching task ${taskId} or task not found:`,
             checkError?.message,
           );
-          return new Response(JSON.stringify({ error: 'Task not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return createNotFoundResponse('Task not found');
         }
 
         // Using 'any' cast to bypass complex type inference issue (TS2339)
@@ -731,15 +687,7 @@ serve(async (req) => {
         const projectCompanyId = (taskToCheck?.sections as any)?.[0]?.projects?.[0]?.company_id ?? (taskToCheck?.sections as any)?.projects?.company_id;
         if (!projectCompanyId) {
            console.error(`Could not determine company ID for task ${taskId}`);
-          return new Response(
-            JSON.stringify({
-              error: 'Internal Server Error: Project/Company information not available',
-            }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createInternalServerErrorResponse('Project/Company information not available');
         }
 
         // Permission check: Staff or user with 'task:manage'
@@ -760,13 +708,7 @@ serve(async (req) => {
 
         if (!profile?.is_staff && !permissionData) {
           console.error(`User ${user.id} not authorized to manage tasks.`);
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Delete the task
@@ -789,21 +731,11 @@ serve(async (req) => {
       }
       default:
         console.warn(`Method ${req.method} not allowed for /tasks`);
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    // Use generic 500 for now, specific handlers should throw specific errors
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });
 
@@ -1525,15 +1457,7 @@ serve(async (req) => {
         const projectCompanyId = (taskToCheck?.sections as any)?.[0]?.projects?.[0]?.company_id ?? (taskToCheck?.sections as any)?.projects?.company_id;
         if (!projectCompanyId) {
            console.error(`Could not determine company ID for task ${taskId}`);
-          return new Response(
-            JSON.stringify({
-              error: 'Internal Server Error: Project/Company information not available',
-            }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createInternalServerErrorResponse('Project/Company information not available');
         }
 
         // Permission check: Staff or user with 'task:manage'

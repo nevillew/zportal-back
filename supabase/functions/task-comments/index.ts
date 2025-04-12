@@ -7,6 +7,11 @@ import {
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
 
@@ -47,10 +52,7 @@ serve(async (req) => {
       ? e.message
       : 'Unknown error during setup';
     console.error('Auth/Client Error:', setupErrorMessage);
-    return new Response(JSON.stringify({ error: 'Authentication failed' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createUnauthorizedResponse('Authentication failed');
   }
 
   const url = new URL(req.url);
@@ -101,13 +103,7 @@ serve(async (req) => {
           console.warn(
             `User ${user.id} tried to list comments for non-existent or inaccessible task ${taskId}`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Task not found or access denied' }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createNotFoundResponse('Task not found or access denied');
         }
         // --- End Permission Check ---
 
@@ -216,13 +212,7 @@ serve(async (req) => {
           console.warn(
             `User ${user.id} tried to comment on non-existent or inaccessible task ${taskId}`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Task not found or access denied' }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createNotFoundResponse('Task not found or access denied');
         }
         // --- End Permission Check ---
 
@@ -298,25 +288,18 @@ serve(async (req) => {
           const message = fetchError.code === 'PGRST116'
             ? 'Comment not found'
             : 'Error fetching comment';
-          return new Response(JSON.stringify({ error: message }), {
-            status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          if (status === 404) {
+            return createNotFoundResponse(message);
+          } else {
+            return createInternalServerErrorResponse(message);
+          }
         }
 
         if (existingComment.user_id !== user.id) {
           console.warn(
             `User ${user.id} attempted to update comment ${commentId} owned by ${existingComment.user_id}`,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Forbidden: You can only update your own comments',
-            }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse('You can only update your own comments');
         }
         // --- End Ownership Check ---
 
@@ -370,10 +353,11 @@ serve(async (req) => {
           const message = fetchError.code === 'PGRST116'
             ? 'Comment not found'
             : 'Error fetching comment';
-          return new Response(JSON.stringify({ error: message }), {
-            status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          if (status === 404) {
+            return createNotFoundResponse(message);
+          } else {
+            return createInternalServerErrorResponse(message);
+          }
         }
 
         // TODO(permissions): Add check for admin/staff override permission if needed, allowing deletion of others' comments.
@@ -381,15 +365,7 @@ serve(async (req) => {
           console.warn(
             `User ${user.id} attempted to delete comment ${commentId} owned by ${existingComment.user_id}`,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Forbidden: You can only delete your own comments',
-            }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse('You can only delete your own comments');
         }
         // --- End Ownership Check ---
 
@@ -413,20 +389,10 @@ serve(async (req) => {
         return new Response(null, { status: 204, headers: { ...corsHeaders } });
       }
       default:
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Request Handling Error:', errorMessage);
-    // Use generic 500 for now, specific handlers should throw specific errors
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });

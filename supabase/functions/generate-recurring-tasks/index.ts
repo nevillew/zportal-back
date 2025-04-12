@@ -2,9 +2,12 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import {
   createClient,
+  createClient,
   SupabaseClient,
 } from 'https://esm.sh/@supabase/supabase-js@2';
 import { RRule } from 'rrule-deno'; // Import the library
+import { corsHeaders } from '../_shared/cors.ts'; // Import CORS headers
+import { createInternalServerErrorResponse } from '../_shared/validation.ts'; // Import error helper
 
 console.log('Generate Recurring Tasks function started');
 
@@ -44,10 +47,7 @@ serve(async (_req) => {
     );
     // Log to background_job_failures table if possible, or just return error
     // await logFailure('generate-recurring-tasks', null, `Client setup error: ${setupErrorMessage}`);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error during setup' }),
-      { status: 500 },
-    );
+    return createInternalServerErrorResponse('Internal Server Error during setup');
   }
 
   // --- Main Logic ---
@@ -258,10 +258,7 @@ serve(async (_req) => {
       null,
       error,
     );
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, // Added headers
-    });
+    return createInternalServerErrorResponse(errorMessage, error);
   }
 });
 

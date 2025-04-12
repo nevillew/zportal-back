@@ -1,12 +1,22 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  createBadRequestResponse,
+  createConflictResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
+  // createValidationErrorResponse, // Keep if needed for future validation
+} from '../_shared/validation.ts';
 
 console.log('Custom Field Definitions function started');
 
 // Helper function to check if a user has permission to manage custom field definitions
 async function checkCustomFieldPermission(
-  supabaseClient: any,
+  supabaseClient: SupabaseClient, // Use SupabaseClient type
   userId: string,
 ): Promise<boolean> {
   // Use the has_permission RPC function to check for admin:manage_custom_fields permission
@@ -52,11 +62,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
 
     console.log(
@@ -74,14 +80,8 @@ serve(async (req) => {
         console.error(
           `User ${user.id} is not authorized to modify custom field definitions.`,
         );
-        return new Response(
-          JSON.stringify({
-            error: 'Forbidden: Only authorized staff can manage custom field definitions',
-          }),
-          {
-            status: 403,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
+        return createForbiddenResponse(
+          'Only authorized staff can manage custom field definitions',
         );
       }
     }
@@ -98,12 +98,12 @@ serve(async (req) => {
             .eq('id', definitionId)
             .single();
 
-          if (error) throw error;
+          if (error) {
+            console.error(`Error fetching definition ${definitionId}:`, error.message);
+            throw error; // Let the main handler catch it
+          }
           if (!data) {
-            return new Response(JSON.stringify({ error: 'Not Found' }), {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return createNotFoundResponse('Definition not found');
           }
 
           return new Response(JSON.stringify(data), {
@@ -150,13 +150,7 @@ serve(async (req) => {
           }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse(errorMessage);
         }
 
         const { data, error } = await supabaseClient
@@ -182,53 +176,24 @@ serve(async (req) => {
           if (error.code === '23505') { // PostgreSQL unique violation code
             const constraintMatch = error.message.match(/violates unique constraint "(.+?)"/);
             const constraint = constraintMatch ? constraintMatch[1] : 'unknown';
-            
             if (constraint.includes('name')) {
-              return new Response(
-                JSON.stringify({
-                  error: `Definition with name '${newDefinitionData.name}' already exists.`,
-                }),
-                {
-                  status: 409, // Conflict
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
+              return createConflictResponse(
+                `Definition with name '${newDefinitionData.name}' already exists.`,
               );
             } else if (constraint.includes('entity_type_field_name')) {
-              return new Response(
-                JSON.stringify({
-                  error: `A field with name '${newDefinitionData.name}' already exists for entity type '${newDefinitionData.entity_type}'.`,
-                }),
-                {
-                  status: 409, // Conflict
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
+              return createConflictResponse(
+                `A field with name '${newDefinitionData.name}' already exists for entity type '${newDefinitionData.entity_type}'.`,
               );
             }
           } else if (error.code === '23514') { // Check constraint violation
-            return new Response(
-              JSON.stringify({
-                error: `Invalid field value: ${error.message}. Please check that entity_type and field_type are valid values.`,
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid field value: ${error.message}. Please check that entity_type and field_type are valid values.`,
             );
           } else if (error.code === '23502') { // Not null violation
             const columnMatch = error.message.match(/null value in column "(.+?)"/);
             const column = columnMatch ? columnMatch[1] : 'unknown';
-            
-            return new Response(
-              JSON.stringify({
-                error: `The ${column} field is required.`,
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createBadRequestResponse(`The ${column} field is required.`);
           }
-          
           throw error;
         }
 
@@ -240,15 +205,7 @@ serve(async (req) => {
       case 'PUT': {
         // PUT /custom-field-definitions/{id} (Update)
         if (!definitionId) {
-          return new Response(
-            JSON.stringify({
-              error: 'Bad Request: Definition ID missing in URL',
-            }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Definition ID missing in URL');
         }
         console.log(`Updating definition ${definitionId}`);
         let updateData;
@@ -259,13 +216,7 @@ serve(async (req) => {
           }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse(errorMessage);
         }
 
         // Prepare allowed update fields (prevent updating ID, name, entity_type)
@@ -299,43 +250,18 @@ serve(async (req) => {
             `Error updating definition ${definitionId}:`,
             error.message,
           );
-          
           // Handle specific errors
           if (error.code === 'PGRST204') { // No rows updated/selected
-            return new Response(
-              JSON.stringify({
-                error: 'Definition not found or update failed',
-              }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Definition not found or update failed');
           } else if (error.code === '23514') { // Check constraint violation
-            return new Response(
-              JSON.stringify({
-                error: `Invalid field value: ${error.message}. Please check that field_type and other values are valid.`,
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid field value: ${error.message}. Please check that field_type and other values are valid.`,
             );
           } else if (error.code === '23502') { // Not null violation
             const columnMatch = error.message.match(/null value in column "(.+?)"/);
             const column = columnMatch ? columnMatch[1] : 'unknown';
-            
-            return new Response(
-              JSON.stringify({
-                error: `The ${column} field is required.`,
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createBadRequestResponse(`The ${column} field is required.`);
           }
-          
           throw error;
         }
 
@@ -347,15 +273,7 @@ serve(async (req) => {
       case 'DELETE': {
         // DELETE /custom-field-definitions/{id}
         if (!definitionId) {
-          return new Response(
-            JSON.stringify({
-              error: 'Bad Request: Definition ID missing in URL',
-            }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Definition ID missing in URL');
         }
         console.log(`Deleting definition ${definitionId}`);
 
@@ -369,28 +287,14 @@ serve(async (req) => {
             `Error deleting definition ${definitionId}:`,
             error.message,
           );
-          
           // Handle specific database errors
           if (error.code === 'PGRST204') { // No rows deleted
-            return new Response(
-              JSON.stringify({ error: 'Custom field definition not found or already deleted' }),
-              {
-                status: 404, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Custom field definition not found or already deleted');
           } else if (error.code === '23503') { // Foreign key violation
-            return new Response(
-              JSON.stringify({ 
-                error: 'Cannot delete this custom field definition because it is in use. Delete all field values using this definition first.' 
-              }),
-              {
-                status: 409, // Conflict
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createConflictResponse(
+              'Cannot delete this custom field definition because it is in use. Delete all field values using this definition first.',
             );
           }
-          
           throw error;
         }
 
@@ -400,19 +304,10 @@ serve(async (req) => {
         return new Response(null, { headers: { ...corsHeaders }, status: 204 }); // No Content
       }
       default:
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });

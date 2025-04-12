@@ -14,3 +14,10 @@
 -   **Error Handling:** Refactor `milestones` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, `createUnauthorizedResponse`, `createConflictResponse`, etc.) from `_shared/validation.ts`.
 -   **Error Handling:** Refactor `risks` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, `createUnauthorizedResponse`, etc.) from `_shared/validation.ts`.
 -   **Error Handling:** Refactor `issues` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, `createUnauthorizedResponse`, `createConflictResponse`, `createBadRequestResponse`, etc.) from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `sections` Edge Function to use standardized error response helpers from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `tasks` Edge Function to use standardized error response helpers from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `task-comments` Edge Function to use standardized error response helpers from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `task-files` Edge Function to use standardized error response helpers from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `custom-field-definitions` Edge Function to use standardized error response helpers from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `instantiate-project-template` Edge Function to use standardized error response helpers from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `generate-recurring-tasks` Edge Function to use standardized error response helpers from `_shared/validation.ts`.

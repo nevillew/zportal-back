@@ -35,13 +35,13 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Refactor `milestones` function to return standardized error responses.
     - [x] Refactor `risks` function to return standardized error responses.
     - [x] Refactor `issues` function to return standardized error responses.
-    - [ ] Refactor `sections` function to return standardized error responses.
-    - [ ] Refactor `tasks` function to return standardized error responses.
-    - [ ] Refactor `task-comments` function to return standardized error responses.
-    - [ ] Refactor `task-files` function to return standardized error responses.
-    - [ ] Refactor `custom-field-definitions` function to return standardized error responses.
-    - [ ] Refactor `instantiate-project-template` function to return standardized error responses.
-    - [ ] Refactor `generate-recurring-tasks` function to return standardized error responses (via HTTP response).
+    - [x] Refactor `sections` function to return standardized error responses.
+    - [x] Refactor `tasks` function to return standardized error responses.
+    - [x] Refactor `task-comments` function to return standardized error responses.
+    - [x] Refactor `task-files` function to return standardized error responses.
+    - [x] Refactor `custom-field-definitions` function to return standardized error responses.
+    - [x] Refactor `instantiate-project-template` function to return standardized error responses.
+    - [x] Refactor `generate-recurring-tasks` function to return standardized error responses (via HTTP response).
 - [ ] **Seed Data:**
     - [ ] Create/Update `seed.sql` with default `roles` and `permissions` based on `plan.md`.
     - [ ] _Note: Seeding default `project_templates` requires defining template content first._

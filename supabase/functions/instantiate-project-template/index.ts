@@ -8,6 +8,11 @@ import {
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
 
@@ -149,11 +154,7 @@ serve(async (req) => {
     const { data: { user: authUser }, error: userError } = await supabaseClient
       .auth.getUser();
     if (userError || !authUser) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
     user = authUser; // Assign user for later use
     console.log(`Handling ${req.method} request for user ${user.id}`);
@@ -165,21 +166,12 @@ serve(async (req) => {
       'Error initializing Supabase client or getting user:',
       setupErrorMessage,
     );
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error during setup' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    );
+    return createInternalServerErrorResponse('Internal Server Error during setup');
   }
 
   // --- Request Parsing and Validation ---
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return createMethodNotAllowedResponse();
   }
 
   let requestData: InstantiateRequest;
@@ -232,26 +224,14 @@ serve(async (req) => {
       console.error(
         `User ${user.id} not authorized to create projects in company ${requestData.target_company_id}.`,
       );
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: Not authorized' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return createForbiddenResponse();
     }
   } catch (error) {
     const permissionCheckErrorMessage = error instanceof Error
       ? error.message
       : 'Unknown error checking permissions';
     console.error('Error checking permissions:', permissionCheckErrorMessage);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error checking permissions' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    );
+    return createInternalServerErrorResponse('Internal Server Error checking permissions');
   }
 
   // --- Main Instantiation Logic ---
@@ -269,15 +249,7 @@ serve(async (req) => {
         `Error fetching template version ${requestData.template_version_id}:`,
         templateError?.message,
       );
-      return new Response(
-        JSON.stringify({
-          error: 'Template version not found or error fetching it.',
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return createNotFoundResponse('Template version not found or error fetching it.');
     }
     const definedPlaceholders = templateVersion.defined_placeholders as
       | any[]
@@ -295,15 +267,7 @@ serve(async (req) => {
         `Error fetching company ${requestData.target_company_id}:`,
         companyError?.message,
       );
-      return new Response(
-        JSON.stringify({
-          error: 'Target company not found or error fetching it.',
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return createNotFoundResponse('Target company not found or error fetching it.');
     }
 
     // 3. Fetch Company Custom Fields
@@ -361,13 +325,7 @@ serve(async (req) => {
         `Error fetching section/task templates for version ${requestData.template_version_id}:`,
         sectionsError.message,
       );
-      return new Response(
-        JSON.stringify({ error: 'Error fetching template structure.' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return createInternalServerErrorResponse('Error fetching template structure.');
     }
 
     const sectionTemplates = sectionTemplatesData as SectionTemplate[] || []; // Type cast
@@ -556,9 +514,6 @@ serve(async (req) => {
       : 'Unknown internal server error during instantiation';
     console.error('Instantiation Error:', instantiationErrorMessage);
     // TODO(transaction): Implement transaction rollback here if applicable (depends on chosen transaction strategy).
-    return new Response(JSON.stringify({ error: instantiationErrorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    return createInternalServerErrorResponse(instantiationErrorMessage, error);
   }
 });
