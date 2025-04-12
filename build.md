@@ -106,7 +106,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Apply trigger to `lesson_completions` table. (Note: Only handles `lesson_completion` criteria type for now).
 - [x] **Existing Function Notifications:**
     - [x] `issues`: Trigger notification on assignment or status change.
-    - [ ] `milestones`: Trigger notification upon successful milestone approval (POST /approve).
+    - [x] `milestones`: Trigger notification upon successful milestone approval (POST /approve).
     - [ ] `risks`: Trigger notification on assignment or status change.
 
 ## 5. Advanced Function Refactors
