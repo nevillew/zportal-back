@@ -5,8 +5,8 @@ This document outlines the remaining implementation steps and identified TODOs f
 ## Core Mechanisms & Setup
 
 ## 1. Foundational Setup
-- [ ] **Seed Data:**
-    - [ ] Create/Update `seed.sql` with default `roles` and `permissions` based on `plan.md`.
+- [x] **Seed Data:**
+    - [x] Create/Update `seed.sql` with default `roles` and `permissions` based on `plan.md`.
     - [ ] _Note: Seeding default `project_templates` requires defining template content first._
 
 ## 2. Existing Function Enhancements (Core Logic & Permissions)

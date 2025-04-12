@@ -1,3 +1,7 @@
+## 2025-04-14
+
+-   **Seed Data:** Create `supabase/seed.sql` file and populate it with default system roles ('Staff Admin', 'Project Manager', 'Implementation Specialist', 'Company Admin', 'Client Viewer') and their corresponding `base_permissions` JSONB definitions based on `plan.md`. Marked roles as `is_system_role = true`.
+
 ## 2025-04-13
 
 -   **RLS:** Define and apply RLS policies for `meetings` table (SELECT, INSERT, UPDATE, DELETE) using helper functions and respecting status lock logic. (Migration: `20250413120000_add_rls_meetings.sql`)
