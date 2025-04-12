@@ -10,7 +10,7 @@ import {
   createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
-import { RRule } from 'rrule-deno'; // Import RRule library
+// import { RRule } from 'rrule-deno'; // Import RRule library (Commented out for debugging)
 
 console.log('Tasks function started');
 
@@ -366,8 +366,9 @@ serve(async (req) => {
 
         const nextOrder = maxOrderData ? (maxOrderData.order + 1) : 0;
 
-        // --- Calculate Initial Next Occurrence Date for Recurring Definitions ---
-        let initialNextOccurrenceDate: string | null = newTaskData.next_occurrence_date || null;
+        // --- Calculate Initial Next Occurrence Date for Recurring Definitions (Commented out for debugging) ---
+        const initialNextOccurrenceDate: string | null = newTaskData.next_occurrence_date || null;
+        /*
         if (newTaskData.is_recurring_definition === true && newTaskData.recurrence_rule) {
           try {
             // Use 'now' as the effective start date for finding the first occurrence
@@ -399,6 +400,7 @@ serve(async (req) => {
             return createValidationErrorResponse({ recurrence_rule: [`Invalid recurrence rule: ${parseErrorMessage}`] });
           }
         }
+        */
         // --- End Calculate Initial Next Occurrence Date ---
 
         // Insert new task
@@ -679,7 +681,8 @@ serve(async (req) => {
           // section_id should not be changed here - that would be a "move" operation
         };
 
-        // --- Recalculate Next Occurrence Date if Rule/End Date Changes ---
+        // --- Recalculate Next Occurrence Date if Rule/End Date Changes (Commented out for debugging) ---
+        /*
         const isRecurringDefinition = taskToCheck.is_recurring_definition || allowedUpdates.is_recurring_definition === true;
         const ruleChanged = allowedUpdates.recurrence_rule !== undefined && allowedUpdates.recurrence_rule !== taskToCheck.recurrence_rule;
         const endDateChanged = allowedUpdates.recurrence_end_date !== undefined && allowedUpdates.recurrence_end_date !== taskToCheck.recurrence_end_date;
@@ -717,6 +720,7 @@ serve(async (req) => {
             allowedUpdates.next_occurrence_date = null;
           }
         }
+        */
         // --- End Recalculate Next Occurrence Date ---
 
         // Remove undefined fields
