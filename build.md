@@ -14,7 +14,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [ ] Define and apply RLS policies for `reports` and `report_schedules`. (Skipped - Tables not defined in plan.md)
     - [ ] Define and apply RLS policies for `integrations` and `integration_configs`. (Skipped - Tables not defined in plan.md)
     - [x] Define and apply RLS policies for `audit_logs` (staff only SELECT, no direct modifications).
-    - [ ] Define and apply RLS policies for `notifications` and `notification_settings`.
+    - [x] Define and apply RLS policies for `notifications` and `notification_settings`.
     - [ ] _Note: Thorough RLS testing is a separate QA activity._
 - [ ] **Database Triggers & Functions:**
     - [x] Implement `updated_at` triggers for all tables (via `moddatetime` extension).
