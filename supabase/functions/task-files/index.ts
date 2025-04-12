@@ -299,12 +299,30 @@ serve(async (req) => {
             `Error inserting file metadata for task ${taskId}:`,
             insertError.message,
           );
-          // Attempt to clean up the uploaded storage file if DB insert fails
-          await supabaseClient.storage.from(BUCKET_NAME).remove([filePath]);
-          console.log(`Cleaned up orphaned storage file: ${filePath}`);
-          // TODO(db-error): Return specific error (e.g., 500 or 4xx if constraint violation like duplicate file_path?) based on insertError.code.
+          // Handle specific database errors for metadata insertion
+          if (insertError.code === '23503') { // Foreign key violation
+            // Attempt to clean up the uploaded storage file
+            await supabaseClient.storage.from(BUCKET_NAME).remove([filePath]);
+            console.log(`Cleaned up orphaned storage file due to FK violation: ${filePath}`);
+            const constraint = insertError.message.includes('task_id')
+              ? 'task_id'
+              : insertError.message.includes('uploaded_by_user_id')
+                ? 'uploaded_by_user_id'
+                : 'unknown foreign key';
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
+            );
+          } else if (insertError.code === '23502') { // Not null violation
+            // Attempt to clean up the uploaded storage file
+            await supabaseClient.storage.from(BUCKET_NAME).remove([filePath]);
+            console.log(`Cleaned up orphaned storage file due to NOT NULL violation: ${filePath}`);
+            const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
+            const column = columnMatch ? columnMatch[1] : 'unknown';
+            return createBadRequestResponse(`The ${column} field is required for file metadata.`);
+          }
+          // For other insert errors, throw a generic internal server error
           throw new Error(
-            `Failed to save file metadata: ${insertError.message}`,
+            `Failed to save file metadata: ${insertError.message}`, // Let the main handler return 500
           );
         }
         // --- End Insert Metadata ---
