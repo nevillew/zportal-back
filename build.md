@@ -71,9 +71,9 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Create RPC function for Start Timer (`start_task_timer`).
     - [x] Create RPC function for Stop Timer (`stop_task_timer`, calculates duration, creates `time_entries`).
     - [x] Create RPC function for Manual Log Time (`log_manual_time`).
-- [ ] **Announcement Endpoints:**
-    - [ ] Create Edge Function for CRUD operations on `announcements` table.
-    - [ ] Implement permission checks.
+- [x] **Announcement Endpoints:**
+    - [x] Create Edge Function for CRUD operations on `announcements` table.
+    - [x] Implement permission checks (Staff manage, users read published/relevant).
 - [ ] **@mention Processor & Notification:**
     - [ ] Create trigger function on `task_comments`/`document_comments` (or other relevant tables).
     - [ ] Implement logic to parse `content` for mentions (e.g., `@username` or `@userid`).
