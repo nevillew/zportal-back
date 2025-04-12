@@ -39,11 +39,11 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement email sending via Resend API (Requires Resend API key).
     - [x] Implement Slack message sending via Slack API (Requires Slack Bot Token/Webhook URL).
     - [x] Implement basic template rendering if needed. (Assumed message pre-formatted for now)
-- [ ] **Accept Invite API Endpoint:**
-    - [ ] Create Edge Function endpoint `/accept-invite`.
-    - [ ] Implement logic to verify invitation token (check status, expiry).
-    - [ ] Implement logic to create `company_users` record.
-    - [ ] Implement logic to update invitation status.
+- [x] **Accept Invite API Endpoint:**
+    - [x] Create Edge Function endpoint `/accept-invite`.
+    - [x] Implement logic to verify invitation token (check status, expiry).
+    - [x] Implement logic to create `company_users` record.
+    - [x] Implement logic to update invitation status.
 - [ ] **SSO JIT Provisioning Handler:** (Requires Supabase Auth Hook setup)
     - [ ] Create Edge Function triggered by Auth Hook.
     - [ ] Implement logic to receive claims, lookup `sso_configurations`, parse attributes, create/update `user_profiles`/`company_users`, handle role mapping.
