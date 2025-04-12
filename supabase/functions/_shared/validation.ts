@@ -307,6 +307,106 @@ export function validateCustom(
 }
 
 /**
+ * Creates a generic unauthorized error response (HTTP 401).
+ * @param message - The error message. Defaults to 'User not authenticated'.
+ * @returns A Response object formatted for unauthorized requests.
+ */
+export function createUnauthorizedResponse(message = 'User not authenticated'): Response {
+    console.warn('Unauthorized request:', message);
+    return new Response(
+        JSON.stringify({ error: message }),
+        {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+    );
+}
+
+/**
+ * Creates a generic forbidden error response (HTTP 403).
+ * @param message - The error message. Defaults to 'Forbidden: Not authorized'.
+ * @returns A Response object formatted for forbidden requests.
+ */
+export function createForbiddenResponse(message = 'Forbidden: Not authorized'): Response {
+    console.warn('Forbidden request:', message);
+    return new Response(
+        JSON.stringify({ error: message }),
+        {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+    );
+}
+
+/**
+ * Creates a generic not found error response (HTTP 404).
+ * @param message - The error message. Defaults to 'Not Found'.
+ * @returns A Response object formatted for not found requests.
+ */
+export function createNotFoundResponse(message = 'Not Found'): Response {
+    console.warn('Not Found:', message);
+    return new Response(
+        JSON.stringify({ error: message }),
+        {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+    );
+}
+
+/**
+ * Creates a generic method not allowed error response (HTTP 405).
+ * @param message - The error message. Defaults to 'Method Not Allowed'.
+ * @returns A Response object formatted for method not allowed requests.
+ */
+export function createMethodNotAllowedResponse(message = 'Method Not Allowed'): Response {
+    console.warn('Method Not Allowed:', message);
+    return new Response(
+        JSON.stringify({ error: message }),
+        {
+            status: 405,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+    );
+}
+
+/**
+ * Creates a generic conflict error response (HTTP 409).
+ * @param message - The error message. Defaults to 'Conflict'.
+ * @returns A Response object formatted for conflict requests.
+ */
+export function createConflictResponse(message = 'Conflict'): Response {
+    console.warn('Conflict:', message);
+    return new Response(
+        JSON.stringify({ error: message }),
+        {
+            status: 409,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+    );
+}
+
+
+/**
+ * Creates a generic internal server error response (HTTP 500).
+ * @param message - The error message. Defaults to 'Internal Server Error'.
+ * @param error - Optional underlying error object.
+ * @returns A Response object formatted for internal server errors.
+ */
+export function createInternalServerErrorResponse(message = 'Internal Server Error', error?: Error): Response {
+    const errorMessage = error instanceof Error ? error.message : message;
+    console.error('Internal Server Error:', errorMessage, error);
+    return new Response(
+        JSON.stringify({ error: errorMessage }),
+        {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+    );
+}
+
+
+/**
  * Validates a request body against a set of validation rules.
  * @param body - The request body to validate
  * @param rules - Object mapping field names to validation rule functions
