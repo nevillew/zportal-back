@@ -7,6 +7,7 @@
 -   **Tasks Function:** Refined permission check in PUT handler to allow assigned users to update tasks flagged as `is_self_service`, aligning function logic with RLS policy. (`supabase/functions/tasks/index.ts`)
 -   **Instantiate Project Template Function:** Added graceful error handling using a main try-catch block and more specific error messages for failures during template fetching, placeholder resolution, or database insertions. (`supabase/functions/instantiate-project-template/index.ts`)
 -   **Storage Policies:** Refined `task-attachments` storage bucket policies (SELECT, INSERT, DELETE) to use RLS helper functions (`can_access_project`, `is_staff_user`, `has_permission`) for consistency. (`scripts/setup-storage-policies.js`)
+-   **Notification Sender Function:** Created new Edge Function (`send-notification`) to handle sending notifications via Email (Resend) and Slack. Includes input validation, secret fetching (placeholder for Vault), API call logic using `fetch`, and basic internal authentication check. (`supabase/functions/send-notification/index.ts`)
 
 ## 2025-04-14
 

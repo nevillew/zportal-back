@@ -34,11 +34,11 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [ ] _Note: Verifying policy strictness is a separate QA/security review activity._
 
 ## 4. New Core Functions & Features (Build Dependencies First)
-- [ ] **Notification Sender Function:** (Dependency for others)
-    - [ ] Define input structure (recipient(s), message, type, context).
-    - [ ] Implement email sending via Resend API (Requires Resend API key).
-    - [ ] Implement Slack message sending via Slack API (Requires Slack Bot Token/Webhook URL).
-    - [ ] Implement basic template rendering if needed.
+- [x] **Notification Sender Function:** (Dependency for others)
+    - [x] Define input structure (recipient(s), message, type, context).
+    - [x] Implement email sending via Resend API (Requires Resend API key).
+    - [x] Implement Slack message sending via Slack API (Requires Slack Bot Token/Webhook URL).
+    - [x] Implement basic template rendering if needed. (Assumed message pre-formatted for now)
 - [ ] **Accept Invite API Endpoint:**
     - [ ] Create Edge Function endpoint `/accept-invite`.
     - [ ] Implement logic to verify invitation token (check status, expiry).
