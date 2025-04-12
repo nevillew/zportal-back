@@ -46,12 +46,7 @@ USING (
     )
 )
 WITH CHECK (
-    -- Prevent updates if status is 'completed', unless only notes or recording_url are changing
-    (
-        status <> 'completed' OR
-        (status = 'completed' AND notes IS NOT DISTINCT FROM NEW.notes AND recording_url IS NOT DISTINCT FROM NEW.recording_url)
-    ) AND
-    -- Re-check permission for the row being updated
+    -- Re-check permission for the row being updated/inserted
     (
         is_staff_user(auth.uid()) OR
         (
@@ -65,6 +60,9 @@ WITH CHECK (
             has_permission(auth.uid(), COALESCE(company_id, (SELECT p.company_id FROM projects p WHERE p.id = meetings.project_id)), 'meeting:manage')
         )
     )
+    -- Note: The logic to prevent updates to 'completed' meetings (except notes/recording_url)
+    -- should be implemented in a BEFORE UPDATE trigger for clarity and correctness,
+    -- as RLS WITH CHECK primarily validates the final state of the row against permissions.
 );
 
 
