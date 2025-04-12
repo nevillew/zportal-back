@@ -86,13 +86,7 @@ serve(async (req) => {
 
           if (!task) {
             console.log(`Task ${taskId} not found or access denied for user ${user.id}`);
-            return new Response(
-              JSON.stringify({ error: 'Task not found or access denied' }),
-              {
-                status: 404, // Not Found or Forbidden
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Task not found or access denied');
           }
 
           // Format response similar to the list endpoint

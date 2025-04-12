@@ -336,13 +336,7 @@ serve(async (req) => {
             updateError.message,
           );
           if (updateError.code === 'PGRST204') { // No rows updated/selected
-            return new Response(
-              JSON.stringify({ error: 'Section not found or update failed' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Section not found or update failed');
           }
           // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
           throw updateError;
