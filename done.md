@@ -30,6 +30,7 @@
 -   **Calendly Webhook Handler:** Created Edge Function (`calendly-webhook-handler`) to process `invitee.created` and `invitee.canceled` events. Parses payload, extracts context (project/company ID via custom questions - placeholder), upserts/updates `meetings` table. Includes placeholder for signature verification. (Function: `supabase/functions/calendly-webhook-handler/index.ts`)
 -   **Certificate Generation:** Created `course_certificates` table. Implemented Edge Function (`generate-certificate`) to call PDFMonkey, upload PDF to storage, and create DB record. Added DB trigger function (`trigger_certificate_generation`) on `lesson_completions` to check for course completion and invoke the Edge Function via `pg_net`. (Migrations: `20250416040100`, `20250416040200`. Function: `supabase/functions/generate-certificate/index.ts`)
 -   **Gamification Trigger:** Created PostgreSQL trigger function `award_badges_on_lesson_completion` to check `badges` criteria and award badges by inserting into `user_badges` upon lesson completion. Applied trigger to `lesson_completions`. (Migration: `20250416050100_add_gamification_trigger.sql`)
+-   **Issue Notifications:** Created PostgreSQL trigger function `notify_issue_change` to call the `send-notification` function via `pg_net` when an issue's assignment or status changes. Applied trigger to `issues`. (Migration: `20250416060100_add_issue_notification_trigger.sql`)
 
 ## 2025-04-14
 
