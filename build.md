@@ -95,11 +95,11 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Create Edge Function endpoint for Calendly webhooks.
     - [x] Implement logic to parse payload, identify context, create/update `meetings` record.
     - [x] Implement error handling/logging.
-- [ ] **Certificate Generator Function:** (Requires PDFMonkey setup)
-    - [ ] Create Edge Function triggered on course completion (e.g., via DB trigger/webhook).
-    - [ ] Implement PDF generation using PDFMonkey API and template ID.
-    - [ ] Implement upload to `certificates` storage bucket.
-    - [ ] Implement creation of `course_certificates` record (if schema exists).
+- [x] **Certificate Generator Function:** (Requires PDFMonkey setup)
+    - [x] Create Edge Function triggered on course completion (via DB trigger on `lesson_completions`).
+    - [x] Implement PDF generation using PDFMonkey API and template ID.
+    - [x] Implement upload to `certificates` storage bucket.
+    - [x] Implement creation of `course_certificates` record.
 - [ ] **Gamification/Badge Awarder Trigger:**
     - [ ] Create trigger function to evaluate `badges.criteria` based on event (e.g., `lesson_completions` insert).
     - [ ] Implement logic to insert into `user_badges` if criteria met.

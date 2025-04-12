@@ -28,6 +28,7 @@
 -   **Welcome Sequence:** Created PostgreSQL trigger function `send_welcome_notification` to call the `send-notification` function via `pg_net` when a user is added to `company_users`. (Migration: `20250416020100_add_welcome_notification_trigger.sql`)
 -   **Messaging API:** Created `conversations`, `conversation_participants`, and `messages` tables with RLS policies. Implemented Edge Function (`messaging`) for listing/creating conversations and listing/sending messages. (Migration: `20250416030100_create_messaging_tables.sql`, Function: `supabase/functions/messaging/index.ts`)
 -   **Calendly Webhook Handler:** Created Edge Function (`calendly-webhook-handler`) to process `invitee.created` and `invitee.canceled` events. Parses payload, extracts context (project/company ID via custom questions - placeholder), upserts/updates `meetings` table. Includes placeholder for signature verification. (Function: `supabase/functions/calendly-webhook-handler/index.ts`)
+-   **Certificate Generation:** Created `course_certificates` table. Implemented Edge Function (`generate-certificate`) to call PDFMonkey, upload PDF to storage, and create DB record. Added DB trigger function (`trigger_certificate_generation`) on `lesson_completions` to check for course completion and invoke the Edge Function via `pg_net`. (Migrations: `20250416040100`, `20250416040200`. Function: `supabase/functions/generate-certificate/index.ts`)
 
 ## 2025-04-14
 
