@@ -19,6 +19,7 @@
 -   **Reporting RPC (Effort Variance):** Created PostgreSQL function `get_effort_variance(p_user_id, p_filters, p_page, p_page_size)` to query the `view_effort_variance` view, apply filters, enforce RLS, and return paginated results. (Migration: `20250415170000_add_rpc_get_effort_variance.sql`)
 -   **Reporting RPC (Milestone Status):** Created PostgreSQL function `get_milestone_status(p_user_id, p_filters, p_page, p_page_size)` to query the `view_milestone_status` view, apply filters, enforce RLS, and return paginated results. (Migration: `20250415180000_add_rpc_get_milestone_status.sql`)
 -   **Reporting Views & RPCs (Batch):** Created SQL views and corresponding RPC functions for remaining reports: `view_company_training_compliance`, `view_open_risks_issues`, `view_template_performance`, `view_client_engagement_summary`, `view_onboarding_cycle_time`, `view_document_usage`, `view_custom_field_analysis`. RPCs include filtering, pagination, and RLS checks. (Migrations: `20250415200100` to `20250415201400`)
+-   **Time Tracking:** Created `time_entries` and `active_timers` tables with RLS policies. Implemented RPC functions `start_task_timer`, `stop_task_timer`, and `log_manual_time` for managing time tracking. (Migrations: `20250415210100` to `20250415210400`)
 
 ## 2025-04-14
 

@@ -67,10 +67,10 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Create RPC function for `view_onboarding_cycle_time` (accept filters, query view, apply RLS, return data).
     - [x] Create RPC function for `view_document_usage` (accept filters, query view, apply RLS, return data).
     - [x] Create RPC function for `view_custom_field_analysis` (accept filters, query view, apply RLS, return data).
-- [ ] **Time Tracking Endpoints:** (If needed beyond PostgREST)
-    - [ ] Create Edge Function/RPC for Start Timer.
-    - [ ] Create Edge Function/RPC for Stop Timer (calculates duration, creates `time_entries`).
-    - [ ] Create Edge Function/RPC for Manual Log Time.
+- [x] **Time Tracking Endpoints:** (If needed beyond PostgREST)
+    - [x] Create RPC function for Start Timer (`start_task_timer`).
+    - [x] Create RPC function for Stop Timer (`stop_task_timer`, calculates duration, creates `time_entries`).
+    - [x] Create RPC function for Manual Log Time (`log_manual_time`).
 - [ ] **Announcement Endpoints:**
     - [ ] Create Edge Function for CRUD operations on `announcements` table.
     - [ ] Implement permission checks.
