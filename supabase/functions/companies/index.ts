@@ -282,13 +282,12 @@ serve(async (req) => {
                 permission_key: 'admin:manage_company_users',
               },
             );
-          if (permissionError) throw permissionError;
-          const { data: profile, error: profileError } = await supabaseClient
-            .from('user_profiles').select('is_staff').eq('user_id', user.id)
-            .single();
-          if (profileError) throw profileError;
+          if (permissionError) {
+            console.error(`Error checking permissions for user ${user.id}:`, permissionError.message);
+            throw permissionError;
+          }
 
-          if (!profile?.is_staff && !permissionData) {
+          if (!permissionData) { // has_permission already returns true for staff
             console.error(
               `User ${user.id} not authorized to invite users to company ${companyId}.`,
             );

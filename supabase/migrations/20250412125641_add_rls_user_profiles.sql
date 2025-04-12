@@ -29,13 +29,16 @@ with check (
 
 -- Allow staff users to UPDATE profiles (e.g., deactivate users, potentially change staff status)
 -- Requires specific permissions check for safety.
-create policy "Allow UPDATE for staff users with permission"
+create policy "Allow UPDATE for staff users"
 on user_profiles for update
 using (
-    is_staff_user(auth.uid()) and has_permission(auth.uid(), null::uuid, 'admin:manage_users') -- Using null company_id for global permission check
+    is_staff_user(auth.uid()) -- Staff can update profiles (e.g., deactivate)
+    -- Add specific permission checks here if needed for *certain* fields,
+    -- e.g., AND has_permission(auth.uid(), null::uuid, 'admin:set_staff_status') for the is_staff field
 )
 with check (
-    is_staff_user(auth.uid()) and has_permission(auth.uid(), null::uuid, 'admin:manage_users')
+    is_staff_user(auth.uid())
+    -- Add corresponding check conditions
 );
 
 -- Disallow DELETE operations generally (use is_active flag for deactivation)
