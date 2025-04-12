@@ -9,3 +9,4 @@
 -   **FTS:** Implement Full-Text Search mechanism: Create `search_index` table, `update_search_index` trigger function, apply triggers to relevant tables, and add RLS policies to `search_index`. (Migration: `20250413180000_add_fts.sql`)
 -   **DB Function:** Implement `clone_project` PostgreSQL function to duplicate projects, sections, tasks (preserving hierarchy), risks, issues, and custom fields. (Migration: `20250413190000_add_clone_project_function.sql`)
 -   **Logging:** Implement logging to `background_job_failures` table within the `generate-recurring-tasks` Edge Function.
+-   **Error Handling:** Refactor `companies` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, etc.) from `_shared/validation.ts`. Added new helper functions to `validation.ts`.

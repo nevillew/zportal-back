@@ -1,6 +1,17 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+    createBadRequestResponse,
+    createConflictResponse,
+    createForbiddenResponse,
+    createInternalServerErrorResponse,
+    createMethodNotAllowedResponse,
+    createNotFoundResponse,
+    createUnauthorizedResponse,
+    createValidationErrorResponse, // Keep if needed for future validation
+    ValidationErrors,
+} from '../_shared/validation.ts';
 
 console.log('Companies function started');
 
@@ -26,11 +37,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
 
     console.log(`Handling ${req.method} request for user ${user.id}`);
@@ -73,16 +80,7 @@ serve(async (req) => {
               console.error(
                 `User ${user.id} not authorized to list users for company ${companyId}.`,
               );
-              return new Response(
-                JSON.stringify({ error: 'Forbidden: Not authorized' }),
-                {
-                  status: 403,
-                  headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json',
-                  },
-                },
-              );
+              return createForbiddenResponse();
             }
 
             // Fetch users associated with the company
@@ -121,10 +119,7 @@ serve(async (req) => {
             console.log(
               `Invalid GET request for /companies/${companyId}/users path: ${url.pathname}`,
             );
-            return new Response(JSON.stringify({ error: 'Not Found' }), {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return createNotFoundResponse();
           }
         } else if (companyId && !usersSubPath) {
           // Handle GET /companies/{id} (Get specific company details)
@@ -173,13 +168,8 @@ serve(async (req) => {
             console.log(
               `Company ${companyId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: `Company not found or access denied` }),
-              {
-                status: 404, // Not Found or Forbidden - use 404 for security
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            // Use 404 for security (don't reveal existence if forbidden)
+            return createNotFoundResponse(`Company not found or access denied`);
           }
 
           // Remove the join table data before returning
@@ -291,13 +281,7 @@ serve(async (req) => {
             console.error(
               `User ${user.id} not authorized to invite users to company ${companyId}.`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Forbidden: Not authorized' }),
-              {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createForbiddenResponse();
           }
 
           // Parse request body for email and role
@@ -314,13 +298,7 @@ serve(async (req) => {
               ? e.message
               : 'Unknown error';
             console.error('Error parsing invite request body:', errorMessage);
-            return new Response(
-              JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-              {
-                status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createBadRequestResponse(errorMessage);
           }
 
           // Generate invitation token and expiry
@@ -346,19 +324,10 @@ serve(async (req) => {
               `Error creating invitation for ${inviteData.email} to company ${companyId}:`,
               inviteError.message,
             );
-            // TODO(db-error): Handle potential unique constraint violations (e.g., email already invited) with 409 Conflict.
             if (inviteError.code === '23505') { // Unique violation
-              return new Response(
-                JSON.stringify({ error: 'User already invited or member' }),
-                {
-                  status: 409, // Conflict
-                  headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json',
-                  },
-                },
-              );
+              return createConflictResponse('User already invited or member');
             }
+            // For other errors, let the main catch handler deal with it
             throw inviteError;
           }
 
@@ -401,15 +370,7 @@ serve(async (req) => {
             console.error(
               `User ${user.id} is not authorized to create companies.`,
             );
-            return new Response(
-              JSON.stringify({
-                error: 'Forbidden: Only staff can create companies',
-              }),
-              {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createForbiddenResponse('Only staff can create companies');
           }
 
           // Parse request body
@@ -424,13 +385,7 @@ serve(async (req) => {
               ? e.message
               : 'Unknown error';
             console.error('Error parsing request body:', errorMessage);
-            return new Response(
-              JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-              {
-                status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createBadRequestResponse(errorMessage);
           }
 
           // Insert new company
@@ -456,18 +411,11 @@ serve(async (req) => {
             if (insertError.code === '23505') { // PostgreSQL unique violation code
               const constraintMatch = insertError.message.match(/violates unique constraint "(.+?)"/);
               const constraint = constraintMatch ? constraintMatch[1] : 'unknown';
-              
               if (constraint.includes('name')) {
-                return new Response(
-                  JSON.stringify({ error: 'A company with this name already exists' }),
-                  {
-                    status: 409, // Conflict
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                  },
-                );
+                return createConflictResponse('A company with this name already exists');
               }
             }
-            
+            // For other errors, let the main catch handler deal with it
             throw insertError;
           }
 
@@ -534,10 +482,7 @@ serve(async (req) => {
         } else {
           // Invalid POST path
           console.log(`Invalid POST request for path: ${url.pathname}`);
-          return new Response(JSON.stringify({ error: 'Not Found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return createNotFoundResponse();
         }
       } // End POST case
       case 'PUT': {
@@ -591,15 +536,7 @@ serve(async (req) => {
             console.error(
               `User ${user.id} is not authorized to update company ${companyId}.`,
             );
-            return new Response(
-              JSON.stringify({
-                error: 'Forbidden: Not authorized to update this company',
-              }),
-              {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createForbiddenResponse('Not authorized to update this company');
           }
 
           // Parse request body
@@ -615,13 +552,7 @@ serve(async (req) => {
               ? e.message
               : 'Unknown error';
             console.error('Error parsing request body:', errorMessage);
-            return new Response(
-              JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-              {
-                status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createBadRequestResponse(errorMessage);
           }
 
           // Prepare allowed update fields (prevent updating ID, created_at etc.)
@@ -656,37 +587,18 @@ serve(async (req) => {
               `Error updating company ${companyId}:`,
               updateError.message,
             );
-            
-            // Handle company not found (PostgREST returns error)
             if (updateError.code === 'PGRST204') { // PostgREST code for no rows updated/selected
-              return new Response(
-                JSON.stringify({ error: 'Company not found or update failed' }),
-                {
-                  status: 404,
-                  headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json',
-                  },
-                },
-              );
+              return createNotFoundResponse('Company not found or update failed');
             }
-            
             // Handle specific database errors
             if (updateError.code === '23505') { // PostgreSQL unique violation code
               const constraintMatch = updateError.message.match(/violates unique constraint "(.+?)"/);
               const constraint = constraintMatch ? constraintMatch[1] : 'unknown';
-              
               if (constraint.includes('name')) {
-                return new Response(
-                  JSON.stringify({ error: 'A company with this name already exists' }),
-                  {
-                    status: 409, // Conflict
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                  },
-                );
+                return createConflictResponse('A company with this name already exists');
               }
             }
-            
+            // For other errors, let the main catch handler deal with it
             throw updateError;
           }
 
@@ -753,13 +665,8 @@ serve(async (req) => {
         } else {
           // Invalid PUT path (e.g., /companies or /companies/{id}/users)
           console.log(`Invalid PUT request for path: ${url.pathname}`);
-          return new Response(
-            JSON.stringify({ error: 'Method Not Allowed or Not Found' }),
-            {
-              status: 405,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          // Use 405 Method Not Allowed as PUT is generally not supported on list endpoints
+          return createMethodNotAllowedResponse();
         }
       } // End PUT case
       case 'DELETE': {
@@ -796,13 +703,7 @@ serve(async (req) => {
             console.error(
               `User ${user.id} not authorized to remove users from company ${companyId}.`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Forbidden: Not authorized' }),
-              {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createForbiddenResponse();
           }
 
           // TODO(permissions): Consider business logic for preventing self-removal or removal of the last admin.
@@ -862,15 +763,7 @@ serve(async (req) => {
             console.error(
               `User ${user.id} is not authorized to delete companies.`,
             );
-            return new Response(
-              JSON.stringify({
-                error: 'Forbidden: Only staff can delete companies',
-              }),
-              {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createForbiddenResponse('Only staff can delete companies');
           }
 
           // Delete the company
@@ -884,31 +777,15 @@ serve(async (req) => {
               `Error deleting company ${companyId}:`,
               deleteError.message,
             );
-            
-            // Handle specific database errors
             if (deleteError.code === '23503') { // PostgreSQL foreign key violation code
-              return new Response(
-                JSON.stringify({ 
-                  error: 'Cannot delete this company because it has related records. Remove all projects and users first.' 
-                }),
-                {
-                  status: 409, // Conflict
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
+              return createConflictResponse(
+                'Cannot delete this company because it has related records. Remove all projects and users first.',
               );
             }
-            
-            // Handle company not found
             if (deleteError.code === 'PGRST204') { // PostgREST code for no rows deleted
-              return new Response(
-                JSON.stringify({ error: 'Company not found or already deleted' }),
-                {
-                  status: 404, 
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
-              );
+              return createNotFoundResponse('Company not found or already deleted');
             }
-            
+            // For other errors, let the main catch handler deal with it
             throw deleteError;
           }
 
@@ -922,30 +799,16 @@ serve(async (req) => {
         } else {
           // Invalid DELETE path
           console.log(`Invalid DELETE request for path: ${url.pathname}`);
-          return new Response(
-            JSON.stringify({ error: 'Method Not Allowed or Not Found' }),
-            {
-              status: 405,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          // Use 405 Method Not Allowed as DELETE is generally not supported on list endpoints
+          return createMethodNotAllowedResponse();
         }
       } // End DELETE case
       default:
         console.warn(`Method ${req.method} not allowed for path ${req.url}`);
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });
