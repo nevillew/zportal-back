@@ -24,7 +24,7 @@ This document outlines the remaining implementation steps and identified TODOs f
         - [x] Define `search_index` table schema (migration).
         - [x] Create trigger function to update `search_index`.
         - [x] Apply FTS trigger to relevant tables (`projects`, `tasks`, `documents`, `issues`, `risks`).
-    - [ ] Implement database function `clone_project` for project duplication (Note: Complex SQL).
+    - [x] Implement database function `clone_project` for project duplication (Note: Complex SQL).
 - [ ] **Error Handling & Logging:**
     - [x] Establish `background_job_failures` table.
     - [ ] Implement logging to `background_job_failures` in `generate-recurring-tasks` function.
