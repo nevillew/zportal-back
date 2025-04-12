@@ -908,10 +908,8 @@ serve(async (req) => {
       .getUser();
     if (userError || !user) {
       console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      // Return the standard unauthorized response
+      return createUnauthorizedResponse('User not authenticated');
     }
 
     console.log(`Handling ${req.method} request for user ${user.id}`);
