@@ -1,6 +1,16 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  createBadRequestResponse,
+  createConflictResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
+  // createValidationErrorResponse, // Keep if needed for future validation
+} from '../_shared/validation.ts';
 
 console.log('Issues function started');
 
@@ -26,11 +36,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
 
     console.log(`Handling ${req.method} request for user ${user.id}`);
@@ -73,13 +79,7 @@ serve(async (req) => {
             console.log(
               `Issue ${issueId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Issue not found or access denied' }),
-              {
-                status: 404, // Not Found or Forbidden
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Issue not found or access denied');
           }
 
           // Format response similar to the list endpoint
@@ -117,13 +117,7 @@ serve(async (req) => {
             console.log(
               `Project ${projectId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Project not found or access denied' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Project not found or access denied');
           }
 
           // Fetch issues for the specified project
@@ -167,14 +161,8 @@ serve(async (req) => {
           });
         } else {
           // Require project_id for listing issues
-          return new Response(
-            JSON.stringify({
-              error: 'Bad Request: project_id query parameter is required',
-            }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createBadRequestResponse(
+            'project_id query parameter is required',
           );
         }
       }
@@ -203,13 +191,7 @@ serve(async (req) => {
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
           console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse(errorMessage);
         }
         const targetProjectId = newIssueData.project_id;
 
@@ -220,10 +202,8 @@ serve(async (req) => {
           .eq('id', targetProjectId)
           .single();
         if (checkError || !projectToCheck) {
-          return new Response(JSON.stringify({ error: 'Project not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          // If project_id is invalid/not found, treat as bad request or not found
+          return createNotFoundResponse('Project not found');
         }
         const companyId = projectToCheck.company_id;
 
@@ -249,13 +229,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} is not authorized to create issues for project ${targetProjectId}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized to create issues for this project' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse('Not authorized to create issues for this project');
         }
 
         // Insert new issue
@@ -288,41 +262,18 @@ serve(async (req) => {
                   : insertError.message.includes('assigned_to_user_id')
                     ? 'assigned_to_user_id'
                     : 'unknown foreign key';
-            
-            return new Response(
-              JSON.stringify({ 
-                error: `Invalid reference: ${constraint} refers to a record that doesn't exist` 
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
           } else if (insertError.code === '23514') { // Check constraint violation
-            return new Response(
-              JSON.stringify({
-                error: `Invalid field value: ${insertError.message}`
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid field value: ${insertError.message}`,
             );
           } else if (insertError.code === '23502') { // Not null violation
             const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
             const column = columnMatch ? columnMatch[1] : 'unknown';
-            
-            return new Response(
-              JSON.stringify({
-                error: `The ${column} field is required.`
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createBadRequestResponse(`The ${column} field is required.`);
           }
-          
           throw insertError;
         }
 
@@ -336,13 +287,7 @@ serve(async (req) => {
       }
       case 'PUT': {
         if (!issueId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Issue ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Issue ID missing in URL');
         }
         console.log(
           `Attempting to update issue ${issueId}, requested by user ${user.id}`,
@@ -362,14 +307,8 @@ serve(async (req) => {
             `Error fetching issue ${issueId} for permission check or issue/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Issue or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Issue or associated project/company not found',
           );
         }
 
@@ -395,13 +334,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to update issue ${issueId} in project ${issueToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized to update this issue' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse('Not authorized to update this issue');
         }
 
         // Parse request body
@@ -424,13 +357,7 @@ serve(async (req) => {
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
           console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse(errorMessage);
         }
 
         // Prepare allowed update fields
@@ -465,57 +392,27 @@ serve(async (req) => {
             `Error updating issue ${issueId}:`,
             updateError.message,
           );
-          
           // Handle specific errors
           if (updateError.code === 'PGRST204') { // No rows updated/selected
-            return new Response(
-              JSON.stringify({ error: 'Issue not found or update failed' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Issue not found or update failed');
           } else if (updateError.code === '23503') { // Foreign key violation
-            const constraint = updateError.message.includes('related_risk_id') 
-              ? 'related_risk_id' 
+            const constraint = updateError.message.includes('related_risk_id')
+              ? 'related_risk_id'
               : updateError.message.includes('assigned_to_user_id')
                 ? 'assigned_to_user_id'
                 : 'unknown foreign key';
-            
-            return new Response(
-              JSON.stringify({ 
-                error: `Invalid reference: ${constraint} refers to a record that doesn't exist` 
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
           } else if (updateError.code === '23514') { // Check constraint violation
-            return new Response(
-              JSON.stringify({
-                error: `Invalid field value: ${updateError.message}`
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid field value: ${updateError.message}`,
             );
           } else if (updateError.code === '23502') { // Not null violation
             const columnMatch = updateError.message.match(/null value in column "(.+?)"/);
             const column = columnMatch ? columnMatch[1] : 'unknown';
-            
-            return new Response(
-              JSON.stringify({
-                error: `The ${column} field is required.`
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createBadRequestResponse(`The ${column} field is required.`);
           }
-          
           throw updateError;
         }
 
@@ -527,13 +424,7 @@ serve(async (req) => {
       }
       case 'DELETE': {
         if (!issueId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Issue ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Issue ID missing in URL');
         }
         console.log(
           `Attempting to delete issue ${issueId}, requested by user ${user.id}`,
@@ -553,14 +444,8 @@ serve(async (req) => {
             `Error fetching issue ${issueId} for permission check or issue/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Issue or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Issue or associated project/company not found',
           );
         }
 
@@ -586,13 +471,8 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to update issue ${issueId} in project ${issueToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized to update this issue' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          // Note: Permission key is 'issue:manage' for DELETE as well
+          return createForbiddenResponse('Not authorized to delete this issue');
         }
 
         // Delete the issue
@@ -606,28 +486,14 @@ serve(async (req) => {
             `Error deleting issue ${issueId}:`,
             deleteError.message,
           );
-          
           // Handle specific database errors
           if (deleteError.code === 'PGRST204') { // No rows deleted
-            return new Response(
-              JSON.stringify({ error: 'Issue not found or already deleted' }),
-              {
-                status: 404, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Issue not found or already deleted');
           } else if (deleteError.code === '23503') { // Foreign key violation
-            return new Response(
-              JSON.stringify({ 
-                error: 'Cannot delete this issue because it is referenced by other records' 
-              }),
-              {
-                status: 409, // Conflict
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createConflictResponse(
+              'Cannot delete this issue because it is referenced by other records',
             );
           }
-          
           throw deleteError;
         }
 
@@ -639,19 +505,10 @@ serve(async (req) => {
       }
       default:
         console.warn(`Method ${req.method} not allowed for /issues`);
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });

@@ -34,7 +34,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Refactor `projects` function to return standardized error responses.
     - [x] Refactor `milestones` function to return standardized error responses.
     - [x] Refactor `risks` function to return standardized error responses.
-    - [ ] Refactor `issues` function to return standardized error responses.
+    - [x] Refactor `issues` function to return standardized error responses.
     - [ ] Refactor `sections` function to return standardized error responses.
     - [ ] Refactor `tasks` function to return standardized error responses.
     - [ ] Refactor `task-comments` function to return standardized error responses.
