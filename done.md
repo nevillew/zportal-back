@@ -13,6 +13,7 @@
 -   **Global Search RPC:** Created PostgreSQL function `global_search(p_user_id, p_query, p_filters, p_page, p_page_size)` to query the `search_index` table using FTS, apply filters, enforce RLS based on the calling user, and return paginated results with relevance ranking. (Migration: `20250415110000_add_global_search_rpc.sql`)
 -   **Reporting RPC (Project Summary):** Created PostgreSQL function `get_project_summary(p_user_id, p_filters, p_page, p_page_size)` to query the `view_project_summary` view, apply filters (company, status, stage, health), enforce RLS, and return paginated results. (Migration: `20250415120000_add_rpc_get_project_summary.sql`)
 -   **Reporting RPC (Task Details):** Created PostgreSQL function `get_task_details(p_user_id, p_filters, p_page, p_page_size)` to query the `view_task_details` view, apply filters (company, project, status, priority, assignee), enforce RLS, and return paginated results. (Migration: `20250415130000_add_rpc_get_task_details.sql`)
+-   **Reporting RPC (Overdue Tasks):** Created PostgreSQL function `get_overdue_tasks(p_user_id, p_filters, p_page, p_page_size)` to query the `view_overdue_tasks` view, apply filters (company, project, assignee), enforce RLS, and return paginated results. (Migration: `20250415140000_add_rpc_get_overdue_tasks.sql`)
 
 ## 2025-04-14
 

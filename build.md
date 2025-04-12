@@ -55,7 +55,7 @@ This document outlines the remaining implementation steps and identified TODOs f
 - [x] **Reporting View RPCs:** (Requires Views to be defined/stable)
     - [x] Create RPC function for `view_project_summary` (accept filters, query view, apply RLS, return data).
     - [x] Create RPC function for `view_task_details` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_overdue_tasks` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_overdue_tasks` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_staff_workload` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_time_tracking_summary` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_effort_variance` (accept filters, query view, apply RLS, return data).
