@@ -6,3 +6,4 @@
 -   **RLS:** Define and apply RLS policies for `custom_field_values` based on access to the parent entity (company, project, task, etc.), using a helper function `can_manage_entity_for_custom_field`. (Migration: `20250413150000_add_rls_custom_field_values.sql`)
 -   **RLS:** Define and apply RLS policies for `audit_log` table, restricting SELECT to staff and disallowing direct modifications. (Migration: `20250413160000_add_rls_audit_logs.sql`)
 -   **RLS:** Define and apply RLS policies for `notifications` (user/staff SELECT, staff DELETE) and `notification_settings` (user CRUD, staff SELECT). (Migration: `20250413170000_add_rls_notifications.sql`)
+-   **FTS:** Implement Full-Text Search mechanism: Create `search_index` table, `update_search_index` trigger function, apply triggers to relevant tables, and add RLS policies to `search_index`. (Migration: `20250413180000_add_fts.sql`)

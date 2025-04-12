@@ -20,10 +20,10 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement `updated_at` triggers for all tables (via `moddatetime` extension).
     - [x] Implement trigger/function for `sections.percent_complete` calculation based on `tasks` status changes.
     - [x] Implement triggers for populating `audit_log` table on relevant data modifications (INSERT, UPDATE, DELETE).
-    - [ ] **Full-Text Search:**
-        - [ ] Define `search_index` table schema (migration).
-        - [ ] Create trigger function to update `search_index`.
-        - [ ] Apply FTS trigger to relevant tables (e.g., `projects`, `tasks`, `documents`, `issues`, `risks`).
+    - [x] **Full-Text Search:**
+        - [x] Define `search_index` table schema (migration).
+        - [x] Create trigger function to update `search_index`.
+        - [x] Apply FTS trigger to relevant tables (`projects`, `tasks`, `documents`, `issues`, `risks`).
     - [ ] Implement database function `clone_project` for project duplication (Note: Complex SQL).
 - [ ] **Error Handling & Logging:**
     - [x] Establish `background_job_failures` table.
