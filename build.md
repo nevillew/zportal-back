@@ -90,8 +90,8 @@ This document outlines the remaining implementation steps and identified TODOs f
 - [x] **Welcome Sequence Trigger/Function:**
     - [x] Create trigger function (`send_welcome_notification`) on `company_users` insert.
     - [x] Implement logic to send welcome notification/email via Notification Sender function using `pg_net`.
-- [ ] **In-app Messaging API (CRUD):** (Requires `conversations`/`messages` schema)
-    - [ ] Create Edge Function endpoints for managing conversations and messages.
+- [x] **In-app Messaging API (CRUD):** (Requires `conversations`/`messages` schema)
+    - [x] Create Edge Function endpoints for managing conversations and messages.
 - [ ] **Calendly Webhook Handler:** (Requires Calendly setup)
     - [ ] Create Edge Function endpoint for Calendly webhooks.
     - [ ] Implement logic to parse payload, identify context, create/update `meetings` record.

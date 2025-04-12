@@ -26,6 +26,7 @@
 -   **Pages API:** Created `pages` table with RLS policies inheriting access from parent document. Implemented Edge Function (`pages`) for CRUD operations, checking parent document permissions. (Migration: `20250416000100_create_pages_table.sql`, Function: `supabase/functions/pages/index.ts`)
 -   **Feedback API:** Created `feedback` table with RLS policies. Implemented Edge Function (`feedback`) for submitting feedback (POST), associating it with the logged-in user. (Migration: `20250416010100_create_feedback_table.sql`, Function: `supabase/functions/feedback/index.ts`)
 -   **Welcome Sequence:** Created PostgreSQL trigger function `send_welcome_notification` to call the `send-notification` function via `pg_net` when a user is added to `company_users`. (Migration: `20250416020100_add_welcome_notification_trigger.sql`)
+-   **Messaging API:** Created `conversations`, `conversation_participants`, and `messages` tables with RLS policies. Implemented Edge Function (`messaging`) for listing/creating conversations and listing/sending messages. (Migration: `20250416030100_create_messaging_tables.sql`, Function: `supabase/functions/messaging/index.ts`)
 
 ## 2025-04-14
 
