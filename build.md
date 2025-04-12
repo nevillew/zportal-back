@@ -166,6 +166,26 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [ ] Query the corresponding view.
     - [ ] Apply necessary RLS checks.
     - [ ] Return data.
+- [ ] **Accept Invite API Endpoint:**
+    - [ ] Verifies invitation token.
+    - [ ] Creates `company_users` record.
+    - [ ] Updates invitation status.
+- [ ] **Document Management API (Versioning, Approvals):** (If needed beyond PostgREST)
+    - [ ] Handle CRUD for documents.
+    - [ ] Implement versioning logic.
+    - [ ] Implement approval workflow logic.
+- [ ] **Page Management API (CRUD):** (If needed beyond PostgREST)
+    - [ ] Handle CRUD for document pages.
+- [ ] **Feedback Submission API:**
+    - [ ] Endpoint to receive and store user feedback.
+- [ ] **Welcome Sequence Trigger/Function:**
+    - [ ] Triggered on user creation or first company join.
+    - [ ] Sends welcome notification/email.
+- [ ] **In-app Messaging API (CRUD):** (If implementing custom messaging)
+    - [ ] Endpoints for conversations and messages.
+- [ ] **@mention Processing & Notification:**
+    - [ ] Parses content for mentions.
+    - [ ] Creates records in `notifications` table.
 
 ## New Scheduled Functions (`pg_cron`)
 
