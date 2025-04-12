@@ -891,9 +891,11 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  let supabaseClient: SupabaseClient;
+  let user;
   try {
     // Create Supabase client with auth header
-    const supabaseClient = createClient(
+    supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
@@ -904,14 +906,15 @@ serve(async (req) => {
     );
 
     // Get user data
-    const { data: { user }, error: userError } = await supabaseClient.auth
-      .getUser();
+    const { data: authData, error: userError } = await supabaseClient.auth.getUser();
+
     // Check for user authentication error or missing user
-    if (userError || !user) {
+    if (userError || !authData.user) {
       console.error('User not authenticated:', userError?.message);
-      // Use the helper function to return a standard 401 response
       return createUnauthorizedResponse('User not authenticated');
     }
+    user = authData.user; // Assign user only after successful check
+
     // If authenticated, log the request details
     console.log(`Handling ${req.method} request for user ${user.id}`);
 
