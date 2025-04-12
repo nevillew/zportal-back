@@ -3,6 +3,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
 
@@ -30,11 +35,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
     // Store user ID after the null check
     const userId = user.id;
@@ -79,13 +80,8 @@ serve(async (req) => {
             console.log(
               `Project ${projectId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: `Project not found or access denied` }),
-              {
-                status: 404, // Not Found or Forbidden - use 404 for security
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            // Use 404 for security (don't reveal existence if forbidden)
+            return createNotFoundResponse(`Project not found or access denied`);
           }
 
           // Rename related fields for clarity
@@ -159,15 +155,8 @@ serve(async (req) => {
             console.error(
               'User became null unexpectedly before listing projects',
             );
-            return new Response(
-              JSON.stringify({
-                error: 'Internal Server Error: User context lost',
-              }),
-              {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            // This should theoretically never happen due to the initial check
+            return createInternalServerErrorResponse('User context lost');
           }
           console.log(`Fetching projects for user ${user.id}`);
 
@@ -258,13 +247,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to create projects in company ${newProjectData.company_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Insert new project
@@ -378,10 +361,7 @@ serve(async (req) => {
             `Error fetching project ${projectId} for permission check or project not found:`,
             checkError?.message,
           );
-          return new Response(JSON.stringify({ error: 'Project not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return createNotFoundResponse('Project not found');
         }
         const projectCompanyId = projectToCheck.company_id;
 
@@ -405,13 +385,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to update project ${projectId}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Parse request body
@@ -463,13 +437,7 @@ serve(async (req) => {
             updateError.message,
           );
           if (updateError.code === 'PGRST204') { // PostgREST code for no rows updated/selected
-            return new Response(
-              JSON.stringify({ error: 'Project not found or update failed' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Project not found or update failed');
           }
           // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
           throw updateError;
@@ -558,10 +526,7 @@ serve(async (req) => {
             `Error fetching project ${projectId} for permission check or project not found:`,
             checkError?.message,
           );
-          return new Response(JSON.stringify({ error: 'Project not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return createNotFoundResponse('Project not found');
         }
         const projectCompanyId = projectToCheck.company_id;
 
@@ -585,13 +550,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to delete project ${projectId}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Delete the project
@@ -625,33 +584,17 @@ serve(async (req) => {
           console.warn(
             `Nested resource or method ${req.method} for project ${projectId} not implemented yet.`,
           );
-          return new Response(
-            JSON.stringify({
-              message:
-                `Endpoint for project ${projectId} not fully implemented`,
-            }),
-            {
-              status: 501, // Not Implemented
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          // Use 404 Not Found as the specific nested resource path doesn't exist
+          return createNotFoundResponse(
+            `Endpoint for project ${projectId} not fully implemented`,
           );
         }
         // If no projectId, it's a general /projects request with an unhandled method
         console.warn(`Method ${req.method} not allowed for /projects`);
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    // Use generic 500 for now, specific handlers should throw specific errors
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });

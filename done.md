@@ -10,3 +10,4 @@
 -   **DB Function:** Implement `clone_project` PostgreSQL function to duplicate projects, sections, tasks (preserving hierarchy), risks, issues, and custom fields. (Migration: `20250413190000_add_clone_project_function.sql`)
 -   **Logging:** Implement logging to `background_job_failures` table within the `generate-recurring-tasks` Edge Function.
 -   **Error Handling:** Refactor `companies` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, etc.) from `_shared/validation.ts`. Added new helper functions to `validation.ts`.
+-   **Error Handling:** Refactor `projects` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, `createUnauthorizedResponse`, etc.) from `_shared/validation.ts`.

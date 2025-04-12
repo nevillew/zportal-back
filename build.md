@@ -31,7 +31,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [ ] Implement logging to `background_job_failures` in future scheduled functions (Data Retention, SLA Check, etc.).
     - [ ] Add Sentry SDK initialization and error capturing to all Edge Functions (Requires Sentry DSN setup externally).
     - [x] Refactor `companies` function to return standardized error responses.
-    - [ ] Refactor `projects` function to return standardized error responses.
+    - [x] Refactor `projects` function to return standardized error responses.
     - [ ] Refactor `milestones` function to return standardized error responses.
     - [ ] Refactor `risks` function to return standardized error responses.
     - [ ] Refactor `issues` function to return standardized error responses.
