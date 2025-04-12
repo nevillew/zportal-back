@@ -48,12 +48,9 @@ ZPortal aims to streamline and standardize the client onboarding process by prov
 ├── README.md                 # This file
 ├── build.md                  # Remaining implementation steps and TODOs
 ├── deno.lock                 # Deno lock file for functions
-├── done.md                   # Completed implementation tasks log
 ├── package.json              # Node.js dependencies (for scripts)
 ├── package-lock.json         # Node.js lock file
 ├── plan.md                   # Detailed Backend & Frontend Specifications (v3.3)
-├── plan_next.md              # High-level assessment and next steps (as of 2025-04-12)
-├── progress.md               # Detailed progress summary (as of 2025-04-13)
 ├── scripts/                  # Utility scripts (Node.js)
 │   ├── README.md             # Scripts documentation
 │   ├── create-storage-buckets.js # Script to create Supabase Storage buckets
@@ -218,8 +215,7 @@ Utility scripts are located in the `scripts/` directory. See `scripts/README.md`
 
 ## Project Status & Next Steps
 
-*   **Current Status:** The project has a well-defined specification (`plan.md`) and a substantial database schema implemented through numerous migrations. Core concepts like multi-tenancy and RLS are established. Many foundational Edge Functions exist but require refinement and implementation of specific business logic, error handling, and permission checks. See `progress.md` for a detailed summary.
-*   **Completed Tasks:** Key completed implementation steps are logged in `done.md`.
+*   **Current Status:** The project has a well-defined specification (`plan.md`) and a substantial database schema implemented through numerous migrations. Core concepts like multi-tenancy and RLS are established. Many foundational Edge Functions exist but require refinement and implementation of specific business logic, error handling, and permission checks.
 *   **Remaining Work:** Outstanding tasks and the planned implementation order are detailed in `build.md`. This includes refining existing functions, implementing new functions (SSO JIT, webhooks, notifications, reporting RPCs), scheduled tasks, and thorough testing.
 
 ## Contributing

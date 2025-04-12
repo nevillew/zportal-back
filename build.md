@@ -1,6 +1,6 @@
 # Backend Build Steps & TODOs
 
-This document outlines the remaining implementation steps and identified TODOs for the backend, based on `plan.md` (v3.3) and the current codebase.
+This document outlines the remaining implementation steps and identified TODOs for the backend, based on `plan.md` (v3.3) and the current codebase. Items marked as complete were previously tracked in `done.md`.
 
 ## Core Mechanisms & Setup
 
