@@ -52,8 +52,8 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement query against `search_index` table using FTS (`websearch_to_tsquery`, `ts_rank_cd`).
     - [x] Implement RLS checks on results using `is_staff_user` and `is_member_of_company` helpers.
     - [x] Implement pagination and return formatted results including `total_count`.
-- [ ] **Reporting View RPCs:** (Requires Views to be defined/stable)
-    - [ ] Create RPC function for `view_project_summary` (accept filters, query view, apply RLS, return data).
+- [x] **Reporting View RPCs:** (Requires Views to be defined/stable)
+    - [x] Create RPC function for `view_project_summary` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_task_details` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_overdue_tasks` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_staff_workload` (accept filters, query view, apply RLS, return data).
