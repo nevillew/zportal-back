@@ -258,27 +258,42 @@ serve(async (_req) => {
       null,
       error,
     );
-    return createInternalServerErrorResponse(errorMessage, error);
+    // Ensure logging happens even if the function returns early due to error
+    await logFailure(
+      supabaseAdminClient, // Ensure client is available in catch scope
+      'generate-recurring-tasks',
+      null, // No specific definition payload for general error
+      error instanceof Error ? error : new Error(String(error)),
+    );
+    return createInternalServerErrorResponse(errorMessage, error instanceof Error ? error : undefined);
   }
 });
 
 // --- Helper Function to Log Failures ---
 async function logFailure(
-  client: SupabaseClient,
-  jobName: string,
+  client: SupabaseClient | null, // Allow null client in case setup failed
   payload: any | null,
-  error: Error,
+  error: Error | unknown, // Accept unknown type
 ) {
-  console.error(`Logging failure for job ${jobName}:`, error.message);
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const stackTrace = error instanceof Error ? error.stack : undefined;
+  console.error(`Logging failure for job ${jobName}:`, errorMessage);
+
+  // Check if client is available before attempting to log to DB
+  if (!client) {
+    console.error('!!! Supabase client not available. Cannot log failure to database.');
+    return;
+  }
+
   try {
     const { error: logInsertError } = await client
       .from('background_job_failures')
       .insert({
         job_name: jobName,
-        payload: payload ? JSON.parse(JSON.stringify(payload)) : null, // Ensure payload is serializable JSONB
-        error_message: error.message,
-        stack_trace: error.stack, // Optional: include stack trace
-        status: 'logged', // Default status
+        payload: payload ? JSON.parse(JSON.stringify(payload)) : null,
+        error_message: errorMessage, // Use extracted message
+        stack_trace: stackTrace, // Use extracted stack trace
+        status: 'logged',
       });
 
     if (logInsertError) {

@@ -121,28 +121,28 @@ This document outlines the remaining implementation steps and identified TODOs f
         - [x] Recalculate `next_occurrence_date` if `recurrence_rule` or `recurrence_end_date` changes (PUT).
 
 ## 6. New Scheduled Functions (`pg_cron`)
-- [ ] **Data Retention Cleanup Function:**
-    - [ ] Create SQL function to read retention policies and perform deletes.
-    - [ ] Implement logging to `background_job_failures`.
-    - [ ] Schedule function using `cron.schedule`.
-- [ ] **SLA Check / Overdue Task Notifier Function:**
-    - [ ] Create SQL function to query overdue tasks.
-    - [ ] Implement calls to Notification Sender function.
-    - [ ] Schedule function using `cron.schedule`.
-- [ ] **Project Health Calculator Function:** (If automated)
+- [x] **Data Retention Cleanup Function:**
+    - [x] Create SQL function (`apply_data_retention_policies`) to read retention policies and perform deletes.
+    - [x] Implement logging to `background_job_failures`.
+    - [x] Schedule function using `cron.schedule`.
+- [x] **SLA Check / Overdue Task Notifier Function:**
+    - [x] Create SQL function (`notify_overdue_tasks`) to query overdue tasks.
+    - [x] Implement calls to Notification Sender function via `pg_net`.
+    - [x] Schedule function using `cron.schedule`.
+- [ ] **Project Health Calculator Function:** (If automated) - **SKIPPED** (Requires specific calculation logic)
     - [ ] Create SQL function to analyze metrics and update `projects.health_status`.
     - [ ] Schedule function using `cron.schedule`.
-- [ ] **Training Auto-Assignment Processor Function:** (If rules-based)
+- [ ] **Training Auto-Assignment Processor Function:** (If rules-based) - **SKIPPED** (Requires rule definition)
     - [ ] Create SQL function to evaluate rules and create `course_assignments`.
     - [ ] Schedule function using `cron.schedule`.
-- [ ] **Materialized View Refresher Job:**
-    - [ ] Schedule `REFRESH MATERIALIZED VIEW CONCURRENTLY ...` using `cron.schedule` for each materialized view.
-- [ ] **Gamification Check Function:** (If not purely trigger-based)
+- [x] **Materialized View Refresher Job:**
+    - [x] Schedule `REFRESH MATERIALIZED VIEW CONCURRENTLY ...` using `cron.schedule` for each materialized view (Placeholder schedules added).
+- [ ] **Gamification Check Function:** (If not purely trigger-based) - **SKIPPED** (Requires specific criteria definition)
     - [ ] Create SQL function to evaluate time-based/aggregate badge criteria.
     - [ ] Schedule function using `cron.schedule`.
-- [ ] **`generate-recurring-tasks` Function:**
-    - [ ] Implement logging to `background_job_failures` table on error.
-    - [ ] Clarify and implement permission/security context if needed (currently runs as service_role).
+- [x] **`generate-recurring-tasks` Function:**
+    - [x] Implement logging to `background_job_failures` table on error.
+    - [x] Clarify and implement permission/security context if needed (Confirmed: runs as service_role via secure trigger).
 
 ## 7. Cross-Cutting Concerns & Finalization
 - [ ] **Error Handling & Logging:**

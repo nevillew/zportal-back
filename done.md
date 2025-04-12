@@ -35,6 +35,12 @@
 -   **Risk Notifications:** Created PostgreSQL trigger function `notify_risk_change` to call the `send-notification` function via `pg_net` when a risk's assignment or status changes. Applied trigger to `risks`. (Migration: `20250416070100_add_risk_notification_trigger.sql`)
 -   **Instantiate Template Refactor:** Moved core project instantiation logic from Edge Function to a transactional PostgreSQL RPC function (`instantiate_template_rpc`). Updated Edge Function to call the RPC. (Migration: `20250416080100_add_instantiate_template_rpc.sql`, Function: `supabase/functions/instantiate-project-template/index.ts`)
 -   **Task Recurrence:** Updated `tasks` Edge Function (POST/PUT) to calculate/recalculate `next_occurrence_date` using `rrule-deno` when recurring task definitions are created or their rules/end dates change. (`supabase/functions/tasks/index.ts`)
+-   **Scheduled Functions:**
+    -   Implemented Data Retention SQL function (`apply_data_retention_policies`) with error logging and scheduled via `pg_cron`. (Migration: `20250416090100`)
+    -   Implemented Overdue Task Notifier SQL function (`notify_overdue_tasks`) with error logging, notification via `pg_net`, and scheduled via `pg_cron`. (Migration: `20250416090200`)
+    -   Added placeholder `pg_cron` schedules for refreshing reporting views (assuming they might become materialized). (Migration: `20250416090300`)
+    -   Added error logging to `background_job_failures` within the `generate-recurring-tasks` Edge Function. (`supabase/functions/generate-recurring-tasks/index.ts`)
+    -   Skipped Project Health, Training Auto-Assignment, and Gamification Check scheduled functions due to undefined logic/rules.
 
 ## 2025-04-14
 
