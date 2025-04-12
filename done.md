@@ -24,6 +24,7 @@
 -   **Mentions:** Created PostgreSQL trigger function `process_mentions_and_notify` to parse `@mentions` in `task_comments`, resolve users by full name, and call the `send-notification` function via `pg_net`. Applied trigger to `task_comments`. (Migration: `20250415230100_add_mention_trigger.sql`)
 -   **Documents API:** Created Edge Function (`documents`) for basic CRUD operations on the `documents` table, including permission checks based on scope and user roles/permissions. (Function: `supabase/functions/documents/index.ts`)
 -   **Pages API:** Created `pages` table with RLS policies inheriting access from parent document. Implemented Edge Function (`pages`) for CRUD operations, checking parent document permissions. (Migration: `20250416000100_create_pages_table.sql`, Function: `supabase/functions/pages/index.ts`)
+-   **Feedback API:** Created `feedback` table with RLS policies. Implemented Edge Function (`feedback`) for submitting feedback (POST), associating it with the logged-in user. (Migration: `20250416010100_create_feedback_table.sql`, Function: `supabase/functions/feedback/index.ts`)
 
 ## 2025-04-14
 

@@ -84,8 +84,8 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] _Note: Versioning/Approval logic requires schema definition first._
 - [x] **Page Management API:** (If needed beyond PostgREST)
     - [x] Create Edge Function for CRUD operations on `pages`.
-- [ ] **Feedback Submission API:**
-    - [ ] Create Edge Function endpoint to receive and store user feedback (requires `feedback` table schema).
+- [x] **Feedback Submission API:**
+    - [x] Create Edge Function endpoint to receive and store user feedback (requires `feedback` table schema).
 - [ ] **Welcome Sequence Trigger/Function:**
     - [ ] Create trigger function on `company_users` insert (or `user_profiles` if applicable).
     - [ ] Implement logic to send welcome notification/email via Notification Sender function.
