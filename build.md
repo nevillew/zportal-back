@@ -100,10 +100,10 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement PDF generation using PDFMonkey API and template ID.
     - [x] Implement upload to `certificates` storage bucket.
     - [x] Implement creation of `course_certificates` record.
-- [ ] **Gamification/Badge Awarder Trigger:**
-    - [ ] Create trigger function to evaluate `badges.criteria` based on event (e.g., `lesson_completions` insert).
-    - [ ] Implement logic to insert into `user_badges` if criteria met.
-    - [ ] Apply trigger to relevant tables.
+- [x] **Gamification/Badge Awarder Trigger:**
+    - [x] Create trigger function (`award_badges_on_lesson_completion`) to evaluate `badges.criteria` based on event.
+    - [x] Implement logic to insert into `user_badges` if criteria met (using ON CONFLICT).
+    - [x] Apply trigger to `lesson_completions` table. (Note: Only handles `lesson_completion` criteria type for now).
 - [ ] **Existing Function Notifications:**
     - [ ] `issues`: Trigger notification on assignment or status change.
     - [ ] `milestones`: Trigger notification upon successful milestone approval (POST /approve).
