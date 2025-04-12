@@ -1,3 +1,8 @@
+## 2025-04-15
+
+-   **Task Files Function:** Implemented specific error handling for database constraints (FK violation, NOT NULL) and Storage API errors during file upload (POST) and deletion (DELETE). (`supabase/functions/task-files/index.ts`)
+-   **Task Comments Function:** Added permission check to allow staff users to delete any task comment, in addition to the original author. (`supabase/functions/task-comments/index.ts`)
+
 ## 2025-04-14
 
 -   **Risks Function:** Enhanced `supabase/functions/risks/index.ts`:

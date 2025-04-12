@@ -14,11 +14,11 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement permission checks using `has_permission` (POST, PUT, DELETE). (Verified existing checks)
     - [x] Validate status, probability, impact enums against allowed values (POST, PUT).
     - [x] Handle specific DB errors (FK violations, restricted delete, check constraints, not null) (POST, PUT, DELETE).
-- [ ] **`task-comments` Function:**
-    - [ ] Add permission check for staff/admin DELETE override.
-- [ ] **`task-files` Function:**
-    - [ ] Handle specific DB errors (constraint violations) (POST, DELETE).
-    - [ ] Handle Storage API errors gracefully.
+- [x] **`task-comments` Function:**
+    - [x] Add permission check for staff/admin DELETE override.
+- [x] **`task-files` Function:**
+    - [x] Handle specific DB errors (constraint violations) (POST, DELETE).
+    - [x] Handle Storage API errors gracefully.
 - [ ] **`tasks` Function:**
     - [ ] **Dependency Logic:** Add check for circular dependencies if required (PUT).
     - [ ] Implement conditional task logic evaluation (if backend check needed beyond frontend rendering).
