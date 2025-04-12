@@ -235,8 +235,10 @@ serve(async (req) => {
   }
 
   // --- Main Instantiation Logic ---
+  // Wrap the core logic in a try-catch for graceful error handling
   try {
     // --- Fetch Data for Placeholder Resolution ---
+    console.log('Fetching template version details...');
     // 1. Fetch Template Version Details (including defined placeholders)
     const { data: templateVersion, error: templateError } = await supabaseClient
       .from('project_template_versions')
@@ -249,13 +251,16 @@ serve(async (req) => {
         `Error fetching template version ${requestData.template_version_id}:`,
         templateError?.message,
       );
-      return createNotFoundResponse('Template version not found or error fetching it.');
+      // Use 404 specifically for template not found
+      return createNotFoundResponse('Template version not found.');
     }
     const definedPlaceholders = templateVersion.defined_placeholders as
       | any[]
       | undefined; // Cast for use
+    console.log('Template version details fetched.');
 
     // 2. Fetch Company Data (Standard Fields)
+    console.log('Fetching company data...');
     const { data: companyData, error: companyError } = await supabaseClient
       .from('companies')
       .select('*') // Select all standard fields for potential use
@@ -267,10 +272,13 @@ serve(async (req) => {
         `Error fetching company ${requestData.target_company_id}:`,
         companyError?.message,
       );
-      return createNotFoundResponse('Target company not found or error fetching it.');
+      // Use 404 specifically for company not found
+      return createNotFoundResponse('Target company not found.');
     }
+    console.log('Company data fetched.');
 
     // 3. Fetch Company Custom Fields
+    console.log('Fetching company custom fields...');
     const { data: companyCustomFieldValues, error: cfError } =
       await supabaseClient
         .from('custom_field_values')
@@ -283,8 +291,9 @@ serve(async (req) => {
         `Error fetching custom fields for company ${requestData.target_company_id}:`,
         cfError.message,
       );
-      // Proceed without company custom fields, but log the error
+      // Proceed without company custom fields, but log the error. Error is handled later if critical.
     }
+    console.log('Company custom fields fetched.');
 
     // Format company custom fields for easier lookup in the helper function
     const companyCustomFields: { [fieldName: string]: { value: any } } = {};
@@ -306,9 +315,10 @@ serve(async (req) => {
       companyData,
       companyCustomFields,
     );
-    console.log(`Resolved Project Name (example): ${resolvedProjectName}`); // For testing the helper
+    // console.log(`Resolved Project Name (example): ${resolvedProjectName}`); // Keep commented unless debugging placeholders
 
     // --- Fetch Template Structure (Sections and Tasks) ---
+    console.log('Fetching template structure (sections and tasks)...');
     const { data: sectionTemplatesData, error: sectionsError } =
       await supabaseClient
         .from('section_templates')
@@ -323,12 +333,14 @@ serve(async (req) => {
     if (sectionsError) {
       console.error(
         `Error fetching section/task templates for version ${requestData.template_version_id}:`,
-        sectionsError.message,
+        `Error fetching section/task templates for version ${requestData.template_version_id}: ${sectionsError.message}`,
       );
-      return createInternalServerErrorResponse('Error fetching template structure.');
+      // Throw error to be caught by the main try-catch block
+      throw new Error('Failed to fetch template structure.');
     }
 
     const sectionTemplates = sectionTemplatesData as SectionTemplate[] || []; // Type cast
+    console.log(`Fetched ${sectionTemplates.length} section templates.`);
     console.log(`Fetched ${sectionTemplates.length} section templates.`);
 
     // --- TODO(transaction): Implement Transaction ---
@@ -361,10 +373,10 @@ serve(async (req) => {
       console.error(
         'Error creating project record:',
         projectInsertError?.message,
+        `Error creating project record: ${projectInsertError?.message}`,
       );
-      throw new Error(
-        `Failed to create project record: ${projectInsertError?.message}`,
-      );
+      // Throw error to be caught by the main try-catch block
+      throw new Error('Failed to create project record.');
     }
     const newProjectId = newProject.id;
     console.log(`Created project record with ID: ${newProjectId}`);
@@ -400,11 +412,11 @@ serve(async (req) => {
         console.error(
           `Error creating section from template ${sectionTpl.id} ('${resolvedSectionName}'):`,
           sectionInsertError?.message,
+          `Error creating section from template ${sectionTpl.id} ('${resolvedSectionName}'): ${sectionInsertError?.message}`,
         );
         // TODO(transaction): Rollback needed here if transaction is implemented.
-        throw new Error(
-          `Failed to create section '${resolvedSectionName}': ${sectionInsertError?.message}`,
-        );
+        // Throw error to be caught by the main try-catch block
+        throw new Error(`Failed to create section '${resolvedSectionName}'.`);
       }
       const newSectionId = newSection.id;
       console.log(
@@ -451,11 +463,11 @@ serve(async (req) => {
             console.error(
               `Error creating task from template ${taskTpl.id} ('${resolvedTaskName}'):`,
               taskInsertError?.message,
+              `Error creating task from template ${taskTpl.id} ('${resolvedTaskName}'): ${taskInsertError?.message}`,
             );
             // TODO(transaction): Rollback needed here if transaction is implemented.
-            throw new Error(
-              `Failed to create task '${resolvedTaskName}': ${taskInsertError?.message}`,
-            );
+            // Throw error to be caught by the main try-catch block
+            throw new Error(`Failed to create task '${resolvedTaskName}'.`);
           }
           const newTaskId = newTask.id;
           console.log(
@@ -493,9 +505,8 @@ serve(async (req) => {
         );
         // TODO(transaction): Rollback needed here if transaction is implemented.
         // Decide if this is a critical failure or just a warning. Currently treated as critical.
-        throw new Error(
-          `Failed to insert task custom field values: ${cfInsertError.message}`,
-        );
+        // Throw error to be caught by the main try-catch block
+        throw new Error('Failed to insert task custom field values.');
       }
       console.log('Successfully inserted task custom field values.');
     }
@@ -508,12 +519,18 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 201, // Created
     });
+
   } catch (error) {
+    // Catch any error thrown during the process
     const instantiationErrorMessage = error instanceof Error
       ? error.message
       : 'Unknown internal server error during instantiation';
-    console.error('Instantiation Error:', instantiationErrorMessage);
+    console.error('Project Instantiation Failed:', instantiationErrorMessage, error);
     // TODO(transaction): Implement transaction rollback here if applicable (depends on chosen transaction strategy).
-    return createInternalServerErrorResponse(instantiationErrorMessage, error);
+    // Return a specific error message indicating failure during instantiation
+    return createInternalServerErrorResponse(
+        `Project instantiation failed: ${instantiationErrorMessage}`,
+        error instanceof Error ? error : undefined // Pass original error if available
+    );
   }
 });

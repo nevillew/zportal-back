@@ -5,6 +5,7 @@
 -   **Task Files Function:** Implemented specific error handling for database constraints (FK violation, NOT NULL) and Storage API errors during file upload (POST) and deletion (DELETE). (`supabase/functions/task-files/index.ts`)
 -   **Task Comments Function:** Added permission check to allow staff users to delete any task comment, in addition to the original author. (`supabase/functions/task-comments/index.ts`)
 -   **Tasks Function:** Refined permission check in PUT handler to allow assigned users to update tasks flagged as `is_self_service`, aligning function logic with RLS policy. (`supabase/functions/tasks/index.ts`)
+-   **Instantiate Project Template Function:** Added graceful error handling using a main try-catch block and more specific error messages for failures during template fetching, placeholder resolution, or database insertions. (`supabase/functions/instantiate-project-template/index.ts`)
 
 ## 2025-04-14
 
