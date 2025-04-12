@@ -10,7 +10,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Define and apply RLS policies for `meetings`.
     - [x] Define and apply RLS policies for `courses`, `lessons`, `course_assignments`, `lesson_completions`.
     - [x] Define and apply RLS policies for `badges` and `user_badges`.
-    - [ ] Define and apply RLS policies for `custom_field_values` (Requires careful consideration of entity context).
+    - [x] Define and apply RLS policies for `custom_field_values` (using helper function `can_manage_entity_for_custom_field`).
     - [ ] Define and apply RLS policies for `reports` and `report_schedules`.
     - [ ] Define and apply RLS policies for `integrations` and `integration_configs`.
     - [ ] Define and apply RLS policies for `audit_logs` (e.g., staff only).
