@@ -366,6 +366,41 @@ serve(async (req) => {
 
         const nextOrder = maxOrderData ? (maxOrderData.order + 1) : 0;
 
+        // --- Calculate Initial Next Occurrence Date for Recurring Definitions ---
+        let initialNextOccurrenceDate: string | null = newTaskData.next_occurrence_date || null;
+        if (newTaskData.is_recurring_definition === true && newTaskData.recurrence_rule) {
+          try {
+            // Use 'now' as the effective start date for finding the first occurrence
+            const now = new Date();
+            // Ensure DTSTART is formatted correctly for RRule parsing
+            const dtStartString = now.toISOString().replace(/[-:.]/g, '').substring(0, 15) + 'Z';
+            const ruleString = `DTSTART:${dtStartString}\nRRULE:${newTaskData.recurrence_rule}`;
+            console.log(`Attempting to parse RRULE string: ${ruleString}`); // Debug log
+            const rule = RRule.fromString(ruleString);
+            const firstOccurrence = rule.after(now, true); // Find first occurrence after or at 'now'
+
+            if (firstOccurrence) {
+              // Check against recurrence_end_date if provided
+              if (newTaskData.recurrence_end_date && firstOccurrence > new Date(newTaskData.recurrence_end_date)) {
+                console.log(`First occurrence (${firstOccurrence.toISOString()}) is after recurrence end date (${newTaskData.recurrence_end_date}). No initial occurrence.`);
+                initialNextOccurrenceDate = null;
+              } else {
+                initialNextOccurrenceDate = firstOccurrence.toISOString();
+                console.log(`Calculated initial next_occurrence_date: ${initialNextOccurrenceDate}`);
+              }
+            } else {
+              console.warn(`Could not calculate first occurrence for rule: ${newTaskData.recurrence_rule}. Setting next_occurrence_date to null.`);
+              initialNextOccurrenceDate = null;
+            }
+          } catch (parseError) {
+            const parseErrorMessage = parseError instanceof Error ? parseError.message : 'Unknown error parsing RRULE';
+            console.error(`Error parsing recurrence rule during task creation: ${parseErrorMessage}`);
+            // Return validation error if rule is invalid
+            return createValidationErrorResponse({ recurrence_rule: [`Invalid recurrence rule: ${parseErrorMessage}`] });
+          }
+        }
+        // --- End Calculate Initial Next Occurrence Date ---
+
         // Insert new task
         const { data: createdTask, error: insertError } = await supabaseClient
           .from('tasks')
