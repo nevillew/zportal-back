@@ -56,10 +56,10 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Create RPC function for `view_project_summary` (accept filters, query view, apply RLS, return data).
     - [x] Create RPC function for `view_task_details` (accept filters, query view, apply RLS, return data).
     - [x] Create RPC function for `view_overdue_tasks` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_staff_workload` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_time_tracking_summary` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_effort_variance` (accept filters, query view, apply RLS, return data).
-    - [ ] Create RPC function for `view_milestone_status` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_staff_workload` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_time_tracking_summary` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_effort_variance` (accept filters, query view, apply RLS, return data).
+    - [x] Create RPC function for `view_milestone_status` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_company_training_compliance` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_open_risks_issues` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_template_performance` (accept filters, query view, apply RLS, return data).
