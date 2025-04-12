@@ -27,6 +27,7 @@
 -   **Feedback API:** Created `feedback` table with RLS policies. Implemented Edge Function (`feedback`) for submitting feedback (POST), associating it with the logged-in user. (Migration: `20250416010100_create_feedback_table.sql`, Function: `supabase/functions/feedback/index.ts`)
 -   **Welcome Sequence:** Created PostgreSQL trigger function `send_welcome_notification` to call the `send-notification` function via `pg_net` when a user is added to `company_users`. (Migration: `20250416020100_add_welcome_notification_trigger.sql`)
 -   **Messaging API:** Created `conversations`, `conversation_participants`, and `messages` tables with RLS policies. Implemented Edge Function (`messaging`) for listing/creating conversations and listing/sending messages. (Migration: `20250416030100_create_messaging_tables.sql`, Function: `supabase/functions/messaging/index.ts`)
+-   **Calendly Webhook Handler:** Created Edge Function (`calendly-webhook-handler`) to process `invitee.created` and `invitee.canceled` events. Parses payload, extracts context (project/company ID via custom questions - placeholder), upserts/updates `meetings` table. Includes placeholder for signature verification. (Function: `supabase/functions/calendly-webhook-handler/index.ts`)
 
 ## 2025-04-14
 
