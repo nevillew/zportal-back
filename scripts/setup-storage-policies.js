@@ -103,13 +103,14 @@ const policies = [
         name: 'Allow authenticated users to read task attachments for their company',
         definition: {
           operation: 'SELECT',
-          // Use can_access_project helper function implicitly via task RLS check
+          // Use can_access_project helper function directly
           expression: `
             auth.role() = 'authenticated' AND
             EXISTS (
-              SELECT 1 FROM tasks t
+              SELECT 1 FROM public.tasks t
+              JOIN public.sections s ON t.section_id = s.id
               WHERE t.id::text = (storage.foldername(name))[1]
-              -- RLS on tasks table implicitly checks project access
+              AND public.can_access_project(auth.uid(), s.project_id) -- Use helper function
             )
           `,
           role: 'authenticated',
@@ -119,17 +120,17 @@ const policies = [
         name: 'Allow users with task:manage permission to upload task attachments',
         definition: {
           operation: 'INSERT',
-          // Check if user has 'task:manage' permission on the project associated with the task ID in the path
+          // Use is_staff_user and has_permission helper functions
           expression: `
             auth.role() = 'authenticated' AND
             EXISTS (
-              SELECT 1 FROM tasks t
-              JOIN sections s ON t.section_id = s.id
-              JOIN projects p ON s.project_id = p.id
+              SELECT 1 FROM public.tasks t
+              JOIN public.sections s ON t.section_id = s.id
+              JOIN public.projects p ON s.project_id = p.id
               WHERE t.id::text = (storage.foldername(name))[1]
               AND (
-                is_staff_user(auth.uid()) OR
-                has_permission(auth.uid(), p.company_id, 'task:manage')
+                public.is_staff_user(auth.uid()) OR -- Use helper function
+                public.has_permission(auth.uid(), p.company_id, 'task:manage') -- Use helper function
               )
             )
           `,
@@ -140,20 +141,20 @@ const policies = [
         name: 'Allow users with task:manage permission or uploaders to delete task attachments',
         definition: {
           operation: 'DELETE',
-          // Check if user has 'task:manage' permission OR if they are the uploader (metadata check needed)
-          // Note: We can't easily check uploader metadata directly in storage policy SQL.
-          // Relying on RLS on the task_files table for delete authorization is better.
-          // This storage policy allows deletion if the user *could* manage the task.
+          // Use is_staff_user and has_permission helper functions.
+          // Note: Checking the uploader directly isn't feasible here.
+          // This policy allows deletion if the user can manage the task.
+          // RLS on the task_files table provides the uploader check.
           expression: `
             auth.role() = 'authenticated' AND
             EXISTS (
-              SELECT 1 FROM tasks t
-              JOIN sections s ON t.section_id = s.id
-              JOIN projects p ON s.project_id = p.id
+              SELECT 1 FROM public.tasks t
+              JOIN public.sections s ON t.section_id = s.id
+              JOIN public.projects p ON s.project_id = p.id
               WHERE t.id::text = (storage.foldername(name))[1]
               AND (
-                is_staff_user(auth.uid()) OR
-                has_permission(auth.uid(), p.company_id, 'task:manage')
+                public.is_staff_user(auth.uid()) OR -- Use helper function
+                public.has_permission(auth.uid(), p.company_id, 'task:manage') -- Use helper function
               )
             )
           `,

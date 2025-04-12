@@ -27,8 +27,8 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Handle errors during placeholder resolution or DB operations gracefully (initial step before full transaction refactor).
 
 ## 3. RLS & Storage Policy Refinement
-- [ ] **Storage Policies:**
-    - [ ] Refine Storage Policies to use RLS helper functions where applicable (e.g., `task-attachments` policy).
+- [x] **Storage Policies:**
+    - [x] Refine Storage Policies to use RLS helper functions where applicable (e.g., `task-attachments` policy).
 - [ ] **RLS Notes:**
     - [ ] _Note: Thorough RLS testing is a separate QA activity._
     - [ ] _Note: Verifying policy strictness is a separate QA/security review activity._
