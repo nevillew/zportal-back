@@ -906,12 +906,13 @@ serve(async (req) => {
     // Get user data
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
+    // Check for user authentication error or missing user
     if (userError || !user) {
       console.error('User not authenticated:', userError?.message);
-      // Return the standard unauthorized response
+      // Use the helper function to return a standard 401 response
       return createUnauthorizedResponse('User not authenticated');
     }
-
+    // If authenticated, log the request details
     console.log(`Handling ${req.method} request for user ${user.id}`);
 
     const url = new URL(req.url);
