@@ -3,6 +3,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
 
@@ -30,11 +35,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
 
     console.log(`Handling ${req.method} request for user ${user.id}`);
@@ -73,13 +74,7 @@ serve(async (req) => {
             console.log(
               `Risk ${riskId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Risk not found or access denied' }),
-              {
-                status: 404, // Not Found or Forbidden
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Risk not found or access denied');
           }
 
           // Format response similar to the list endpoint
@@ -115,13 +110,7 @@ serve(async (req) => {
             console.log(
               `Project ${projectId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Project not found or access denied' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Project not found or access denied');
           }
 
           // Fetch risks for the specified project
@@ -232,13 +221,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to manage risks for project ${targetProjectId}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Insert new risk
@@ -297,14 +280,8 @@ serve(async (req) => {
             `Error fetching risk ${riskId} for permission check or risk/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Risk or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Risk or associated project/company not found',
           );
         }
 
@@ -328,13 +305,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to manage risks for project ${riskToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Parse request body
@@ -384,13 +355,7 @@ serve(async (req) => {
         if (updateError) {
           console.error(`Error updating risk ${riskId}:`, updateError.message);
           if (updateError.code === 'PGRST204') { // No rows updated/selected
-            return new Response(
-              JSON.stringify({ error: 'Risk not found or update failed' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Risk not found or update failed');
           }
           // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
           throw updateError;
@@ -427,14 +392,8 @@ serve(async (req) => {
             `Error fetching risk ${riskId} for permission check or risk/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Risk or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Risk or associated project/company not found',
           );
         }
 
@@ -458,13 +417,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to manage risks for project ${riskToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse();
         }
 
         // Delete the risk
@@ -487,20 +440,10 @@ serve(async (req) => {
       }
       default:
         console.warn(`Method ${req.method} not allowed for /risks`);
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    // Use generic 500 for now, specific handlers should throw specific errors
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });
