@@ -45,18 +45,64 @@ serve(async (req) => {
     switch (req.method) {
       case 'GET': {
         if (issueId) {
-          // TODO: Implement GET /issues/{id} (Get specific issue details)
-          console.log(`Fetching details for issue ${issueId}`);
-          return new Response(
-            JSON.stringify({ message: `GET /issues/${issueId} not implemented yet` }),
-            {
-              status: 501,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          // Implement GET /issues/{id} (Get specific issue details)
+          console.log(`Fetching details for issue ${issueId}, user ${user.id}`);
+
+          // Fetch the specific issue with related data
+          // RLS policy "Users can view issues of their projects" should enforce access
+          const { data: issue, error: issueError } = await supabaseClient
+            .from('issues')
+            .select(`
+              *,
+              reporter:reported_by_user_id ( full_name ),
+              assignee:assigned_to_user_id ( full_name ),
+              related_risk:related_risk_id ( description )
+            `)
+            .eq('id', issueId)
+            .maybeSingle(); // Use maybeSingle for potential 404
+
+          if (issueError) {
+            console.error(
+              `Error fetching issue ${issueId}:`,
+              issueError.message,
+            );
+            throw issueError;
+          }
+
+          if (!issue) {
+            console.log(
+              `Issue ${issueId} not found or access denied for user ${user.id}`,
+            );
+            return new Response(
+              JSON.stringify({ error: 'Issue not found or access denied' }),
+              {
+                status: 404, // Not Found or Forbidden
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          }
+
+          // Format response similar to the list endpoint
+          const issueDetails = {
+            ...issue,
+            reported_by_name: issue.reporter?.full_name,
+            assigned_to_name: issue.assignee?.full_name,
+            related_risk_description: issue.related_risk?.description,
+            reporter: undefined,
+            assignee: undefined,
+            related_risk: undefined,
+          };
+
+          console.log(`Successfully fetched issue ${issueId}`);
+          return new Response(JSON.stringify(issueDetails), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          });
         } else if (projectId) {
           // Implement GET /issues?project_id={projectId} (List issues for a project)
-          console.log(`Fetching issues for project ${projectId}, user ${user.id}`);
+          console.log(
+            `Fetching issues for project ${projectId}, user ${user.id}`,
+          );
 
           // Check if user can access the project first
           const { data: projectCheck, error: projectCheckError } =
@@ -112,7 +158,9 @@ serve(async (req) => {
             related_risk: undefined, // Remove nested object
           })) || [];
 
-          console.log(`Found ${issuesList.length} issues for project ${projectId}`);
+          console.log(
+            `Found ${issuesList.length} issues for project ${projectId}`,
+          );
           return new Response(JSON.stringify(issuesList), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
@@ -132,7 +180,9 @@ serve(async (req) => {
       }
       case 'POST': {
         // Implement POST /issues (Create issue for a project)
-        console.log(`Attempting to create an issue, requested by user ${user.id}`);
+        console.log(
+          `Attempting to create an issue, requested by user ${user.id}`,
+        );
 
         // Parse request body
         let newIssueData;
@@ -141,7 +191,15 @@ serve(async (req) => {
           if (!newIssueData.description || !newIssueData.project_id) {
             throw new Error('Missing required fields: description, project_id');
           }
-          // TODO: Validate status, priority enums if provided
+            // Validate status enum if provided
+          if (newIssueData.status && !['Open', 'Investigating', 'Resolved', 'Closed'].includes(newIssueData.status)) {
+            throw new Error("Status must be one of: 'Open', 'Investigating', 'Resolved', 'Closed'");
+          }
+          
+          // Validate priority enum if provided
+          if (newIssueData.priority && !['Low', 'Medium', 'High', 'Critical'].includes(newIssueData.priority)) {
+            throw new Error("Priority must be one of: 'Low', 'Medium', 'High', 'Critical'");
+          }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
           console.error('Error parsing request body:', errorMessage);
@@ -167,30 +225,32 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        const projectCompanyId = projectToCheck.company_id;
+        const companyId = projectToCheck.company_id;
 
-        // Permission check: Staff or user with 'issue:manage'
-        const { data: permissionData, error: permissionError } =
-          await supabaseClient.rpc(
-            'has_permission',
-            {
-              user_id: user.id,
-              company_id: projectCompanyId,
-              permission_key: 'issue:manage',
-            },
-          );
-        if (permissionError) throw permissionError;
-        const { data: profile, error: profileError } = await supabaseClient
-          .from('user_profiles').select('is_staff').eq('user_id', user.id)
-          .single();
-        if (profileError) throw profileError;
-
-        if (!profile?.is_staff && !permissionData) {
+        // Permission check using has_permission RPC function
+        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
+          'has_permission',
+          {
+            user_id: user.id,
+            company_id: companyId,
+            permission_key: 'issue:manage',
+          },
+        );
+        
+        if (permissionError) {
           console.error(
-            `User ${user.id} not authorized to manage issues for project ${targetProjectId}.`,
+            `Error checking permissions for user ${user.id}:`,
+            permissionError.message,
+          );
+          throw permissionError;
+        }
+
+        if (!hasPermission) {
+          console.error(
+            `User ${user.id} is not authorized to create issues for project ${targetProjectId}.`,
           );
           return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
+            JSON.stringify({ error: 'Forbidden: Not authorized to create issues for this project' }),
             {
               status: 403,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -216,6 +276,53 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error creating issue:', insertError.message);
+          
+          // Handle specific database errors
+          if (insertError.code === '23503') { // Foreign key violation
+            const constraint = insertError.message.includes('project_id') 
+              ? 'project_id' 
+              : insertError.message.includes('related_risk_id') 
+                ? 'related_risk_id' 
+                : insertError.message.includes('reported_by_user_id')
+                  ? 'reported_by_user_id'
+                  : insertError.message.includes('assigned_to_user_id')
+                    ? 'assigned_to_user_id'
+                    : 'unknown foreign key';
+            
+            return new Response(
+              JSON.stringify({ 
+                error: `Invalid reference: ${constraint} refers to a record that doesn't exist` 
+              }),
+              {
+                status: 400, // Bad Request
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          } else if (insertError.code === '23514') { // Check constraint violation
+            return new Response(
+              JSON.stringify({
+                error: `Invalid field value: ${insertError.message}`
+              }),
+              {
+                status: 400, // Bad Request
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          } else if (insertError.code === '23502') { // Not null violation
+            const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
+            const column = columnMatch ? columnMatch[1] : 'unknown';
+            
+            return new Response(
+              JSON.stringify({
+                error: `The ${column} field is required.`
+              }),
+              {
+                status: 400, // Bad Request
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          }
+          
           throw insertError;
         }
 
@@ -237,7 +344,9 @@ serve(async (req) => {
             },
           );
         }
-        console.log(`Attempting to update issue ${issueId}, requested by user ${user.id}`);
+        console.log(
+          `Attempting to update issue ${issueId}, requested by user ${user.id}`,
+        );
 
         // Fetch issue's project and company for permission check
         const { data: issueToCheck, error: checkError } = await supabaseClient
@@ -264,28 +373,30 @@ serve(async (req) => {
           );
         }
 
-        // Permission check: Staff or user with 'issue:manage'
-        const { data: permissionData, error: permissionError } =
-          await supabaseClient.rpc(
-            'has_permission',
-            {
-              user_id: user.id,
-              company_id: projectCompanyId,
-              permission_key: 'issue:manage',
-            },
-          );
-        if (permissionError) throw permissionError;
-        const { data: profile, error: profileError } = await supabaseClient
-          .from('user_profiles').select('is_staff').eq('user_id', user.id)
-          .single();
-        if (profileError) throw profileError;
-
-        if (!profile?.is_staff && !permissionData) {
+        // Permission check using has_permission RPC function
+        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
+          'has_permission',
+          {
+            user_id: user.id,
+            company_id: projectCompanyId,
+            permission_key: 'issue:manage',
+          },
+        );
+        
+        if (permissionError) {
           console.error(
-            `User ${user.id} not authorized to manage issues for project ${issueToCheck.project_id}.`,
+            `Error checking permissions for user ${user.id}:`,
+            permissionError.message,
+          );
+          throw permissionError;
+        }
+
+        if (!hasPermission) {
+          console.error(
+            `User ${user.id} not authorized to update issue ${issueId} in project ${issueToCheck.project_id}.`,
           );
           return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
+            JSON.stringify({ error: 'Forbidden: Not authorized to update this issue' }),
             {
               status: 403,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -299,6 +410,16 @@ serve(async (req) => {
           updateData = await req.json();
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
+          }
+          
+          // Validate status enum if provided
+          if (updateData.status && !['Open', 'Investigating', 'Resolved', 'Closed'].includes(updateData.status)) {
+            throw new Error("Status must be one of: 'Open', 'Investigating', 'Resolved', 'Closed'");
+          }
+          
+          // Validate priority enum if provided
+          if (updateData.priority && !['Low', 'Medium', 'High', 'Critical'].includes(updateData.priority)) {
+            throw new Error("Priority must be one of: 'Low', 'Medium', 'High', 'Critical'");
           }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
@@ -324,7 +445,9 @@ serve(async (req) => {
         };
         // Using type assertion to handle TS7053
         Object.keys(allowedUpdates).forEach((key) => {
-          if (allowedUpdates[key as keyof typeof allowedUpdates] === undefined) {
+          if (
+            allowedUpdates[key as keyof typeof allowedUpdates] === undefined
+          ) {
             delete allowedUpdates[key as keyof typeof allowedUpdates];
           }
         });
@@ -338,7 +461,12 @@ serve(async (req) => {
           .single(); // RLS should also prevent unauthorized updates
 
         if (updateError) {
-          console.error(`Error updating issue ${issueId}:`, updateError.message);
+          console.error(
+            `Error updating issue ${issueId}:`,
+            updateError.message,
+          );
+          
+          // Handle specific errors
           if (updateError.code === 'PGRST204') { // No rows updated/selected
             return new Response(
               JSON.stringify({ error: 'Issue not found or update failed' }),
@@ -347,7 +475,47 @@ serve(async (req) => {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               },
             );
+          } else if (updateError.code === '23503') { // Foreign key violation
+            const constraint = updateError.message.includes('related_risk_id') 
+              ? 'related_risk_id' 
+              : updateError.message.includes('assigned_to_user_id')
+                ? 'assigned_to_user_id'
+                : 'unknown foreign key';
+            
+            return new Response(
+              JSON.stringify({ 
+                error: `Invalid reference: ${constraint} refers to a record that doesn't exist` 
+              }),
+              {
+                status: 400, // Bad Request
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          } else if (updateError.code === '23514') { // Check constraint violation
+            return new Response(
+              JSON.stringify({
+                error: `Invalid field value: ${updateError.message}`
+              }),
+              {
+                status: 400, // Bad Request
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          } else if (updateError.code === '23502') { // Not null violation
+            const columnMatch = updateError.message.match(/null value in column "(.+?)"/);
+            const column = columnMatch ? columnMatch[1] : 'unknown';
+            
+            return new Response(
+              JSON.stringify({
+                error: `The ${column} field is required.`
+              }),
+              {
+                status: 400, // Bad Request
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
           }
+          
           throw updateError;
         }
 
@@ -367,7 +535,9 @@ serve(async (req) => {
             },
           );
         }
-        console.log(`Attempting to delete issue ${issueId}, requested by user ${user.id}`);
+        console.log(
+          `Attempting to delete issue ${issueId}, requested by user ${user.id}`,
+        );
 
         // Fetch issue's project and company for permission check
         const { data: issueToCheck, error: checkError } = await supabaseClient
@@ -394,28 +564,30 @@ serve(async (req) => {
           );
         }
 
-        // Permission check: Staff or user with 'issue:manage'
-        const { data: permissionData, error: permissionError } =
-          await supabaseClient.rpc(
-            'has_permission',
-            {
-              user_id: user.id,
-              company_id: projectCompanyId,
-              permission_key: 'issue:manage',
-            },
-          );
-        if (permissionError) throw permissionError;
-        const { data: profile, error: profileError } = await supabaseClient
-          .from('user_profiles').select('is_staff').eq('user_id', user.id)
-          .single();
-        if (profileError) throw profileError;
-
-        if (!profile?.is_staff && !permissionData) {
+        // Permission check using has_permission RPC function
+        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
+          'has_permission',
+          {
+            user_id: user.id,
+            company_id: projectCompanyId,
+            permission_key: 'issue:manage',
+          },
+        );
+        
+        if (permissionError) {
           console.error(
-            `User ${user.id} not authorized to manage issues for project ${issueToCheck.project_id}.`,
+            `Error checking permissions for user ${user.id}:`,
+            permissionError.message,
+          );
+          throw permissionError;
+        }
+
+        if (!hasPermission) {
+          console.error(
+            `User ${user.id} not authorized to update issue ${issueId} in project ${issueToCheck.project_id}.`,
           );
           return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized' }),
+            JSON.stringify({ error: 'Forbidden: Not authorized to update this issue' }),
             {
               status: 403,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -430,7 +602,32 @@ serve(async (req) => {
           .eq('id', issueId);
 
         if (deleteError) {
-          console.error(`Error deleting issue ${issueId}:`, deleteError.message);
+          console.error(
+            `Error deleting issue ${issueId}:`,
+            deleteError.message,
+          );
+          
+          // Handle specific database errors
+          if (deleteError.code === 'PGRST204') { // No rows deleted
+            return new Response(
+              JSON.stringify({ error: 'Issue not found or already deleted' }),
+              {
+                status: 404, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          } else if (deleteError.code === '23503') { // Foreign key violation
+            return new Response(
+              JSON.stringify({ 
+                error: 'Cannot delete this issue because it is referenced by other records' 
+              }),
+              {
+                status: 409, // Conflict
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          }
+          
           throw deleteError;
         }
 
@@ -448,7 +645,9 @@ serve(async (req) => {
         });
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown internal server error';
+    const errorMessage = error instanceof Error
+      ? error.message
+      : 'Unknown internal server error';
     console.error('Internal Server Error:', errorMessage);
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

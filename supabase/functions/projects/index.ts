@@ -1,6 +1,10 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  createBadRequestResponse,
+  createValidationErrorResponse,
+} from '../_shared/validation.ts'; // Import helpers
 
 console.log('Projects function started');
 
@@ -32,8 +36,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    // Store user ID after the null check
+    const userId = user.id;
 
-    console.log(`Handling ${req.method} request for user ${user.id}`);
+    console.log(`Handling ${req.method} request for user ${userId}`);
 
     const url = new URL(req.url);
     // Path: /functions/v1/projects/{projectId}/...
@@ -87,12 +93,59 @@ serve(async (req) => {
             ...project,
             company_name: project.companies?.name,
             project_owner_name: project.user_profiles?.full_name,
+            // Keep original nested objects or remove them based on frontend needs
+            // companies: undefined, // Example: Remove nested object
+            // user_profiles: undefined, // Example: Remove nested object
           };
-          delete projectDetails.companies; // Remove nested object
-          delete projectDetails.user_profiles; // Remove nested object
+          // Remove the join helper data if not needed directly
+          // delete projectDetails.companies;
+          // delete projectDetails.user_profiles;
+
+          // Fetch associated custom fields for this project
+          const { data: customFields, error: cfError } = await supabaseClient
+            .from('custom_field_values')
+            .select(`
+              value,
+              custom_field_definitions ( name, label, field_type, options )
+            `)
+            .eq('entity_id', projectId)
+            // Add filter for project entity type if definition table has it
+            .eq('custom_field_definitions.entity_type', 'project');
+
+          if (cfError) {
+            // Log the whole error object for safety
+            console.error(
+              `Error fetching custom fields for project ${projectId}:`,
+              cfError,
+            );
+            // Don't fail the whole request, just log and return project details without custom fields
+          }
+
+          // Format custom fields into a more usable structure (e.g., object keyed by name)
+          // deno-lint-ignore no-explicit-any
+          const formattedCustomFields: { [key: string]: any } = {};
+          // Explicit null check and optional chaining for forEach
+          if (customFields !== null) {
+            customFields?.forEach((cf) => {
+              // Access the first element of the potential array from the join
+              // deno-lint-ignore no-explicit-any
+              const definition = (cf.custom_field_definitions as any)?.[0];
+              if (definition) {
+                formattedCustomFields[definition.name] = {
+                  label: definition.label,
+                  value: cf.value, // Value is already JSONB
+                  type: definition.field_type,
+                  options: definition.options,
+                };
+              }
+            });
+          }
+
+          // deno-lint-ignore no-explicit-any
+          (projectDetails as any).custom_fields = formattedCustomFields; // Add to the response object
 
           console.log(
-            `Successfully fetched project ${projectId} for user ${user.id}`,
+            `Successfully fetched project ${projectId} with custom fields for user ${userId}`, // Use stored userId
           );
           return new Response(JSON.stringify(projectDetails), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -100,6 +153,22 @@ serve(async (req) => {
           });
         } else {
           // Implement GET /projects (List projects for the user's companies)
+          // Add redundant check again to satisfy type checker
+          if (!user) {
+            // This should theoretically never be reached due to the initial check
+            console.error(
+              'User became null unexpectedly before listing projects',
+            );
+            return new Response(
+              JSON.stringify({
+                error: 'Internal Server Error: User context lost',
+              }),
+              {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          }
           console.log(`Fetching projects for user ${user.id}`);
 
           // Fetch projects where the user is a member of the associated company
@@ -113,7 +182,7 @@ serve(async (req) => {
               stage,
               health_status,
               company_id,
-              companies ( name ) 
+              companies ( name )
             `);
           // RLS implicitly filters based on company_users join
 
@@ -122,10 +191,20 @@ serve(async (req) => {
             throw projectsError;
           }
 
+          // Format the list response for consistency
+          const projectList = projects?.map((p) => ({
+            ...p,
+            // Access the first element of the potential array from the join
+            // deno-lint-ignore no-explicit-any
+            company_name: (p.companies as any)?.[0]?.name ??
+              (p.companies as any)?.name, // Handle potential array/object
+            companies: undefined, // Remove nested object
+          })) || [];
+
           console.log(
-            `Found ${projects?.length || 0} projects for user ${user.id}`,
+            `Found ${projectList.length} projects for user ${user.id}`,
           );
-          return new Response(JSON.stringify(projects || []), {
+          return new Response(JSON.stringify(projectList), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
           });
@@ -136,28 +215,27 @@ serve(async (req) => {
         console.log(`Attempting to create a new project by user ${user.id}`);
 
         // Parse request body
-        let newProjectData;
+        // deno-lint-ignore no-explicit-any
+        let newProjectData: any;
         try {
           newProjectData = await req.json();
-          if (
-            !newProjectData.name || !newProjectData.company_id ||
-            !newProjectData.status || !newProjectData.stage
-          ) {
-            throw new Error(
-              'Missing required fields: name, company_id, status, stage',
-            );
+          const errors: { [field: string]: string[] } = {};
+          if (!newProjectData.name) errors.name = ['Project name is required'];
+          if (!newProjectData.company_id) {
+            errors.company_id = ['Company ID is required'];
           }
-          // TODO: Add validation for status, stage enums
+          if (!newProjectData.status) errors.status = ['Status is required']; // TODO: Validate enum
+          if (!newProjectData.stage) errors.stage = ['Stage is required']; // TODO: Validate enum
+
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
+          // TODO(validation): Add validation for status, stage enums against allowed values.
         } catch (e) {
-          const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          const errorMessage = e instanceof Error
+            ? e.message
+            : 'Invalid JSON body';
+          return createBadRequestResponse(errorMessage);
         }
 
         // Permission check: Staff or user with 'project:create' permission for the target company
@@ -209,10 +287,68 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error creating project:', insertError.message);
+          // TODO(db-error): Check for specific DB errors (e.g., unique constraints on name+company_id?) and return appropriate 4xx status codes.
           throw insertError;
         }
 
-        // TODO: If project_template_version_id is provided, automatically create sections/tasks based on the template. This requires more complex logic.
+        // Handle custom fields provided in the request
+        if (
+          newProjectData.custom_fields &&
+          typeof newProjectData.custom_fields === 'object'
+        ) {
+          // Fetch relevant definitions for 'project' entity type
+          const { data: definitions, error: defError } = await supabaseClient
+            .from('custom_field_definitions')
+            .select('id, name')
+            .eq('entity_type', 'project');
+
+          if (defError) {
+            console.error(
+              'Error fetching custom field definitions:',
+              defError.message,
+            );
+            // Proceed without saving custom fields, but log the error
+          } else if (definitions) {
+            // deno-lint-ignore no-explicit-any
+            const valuesToUpsert: any[] = [];
+            const definitionMap = new Map(
+              definitions.map((d) => [d.name, d.id]),
+            );
+
+            for (const fieldName in newProjectData.custom_fields) {
+              if (definitionMap.has(fieldName)) {
+                valuesToUpsert.push({
+                  definition_id: definitionMap.get(fieldName),
+                  entity_id: createdProject.id,
+                  value: newProjectData.custom_fields[fieldName], // Store value as JSONB
+                });
+              } else {
+                console.warn(
+                  `Custom field definition not found for name: ${fieldName}`,
+                );
+              }
+            }
+
+            if (valuesToUpsert.length > 0) {
+              const { error: upsertError } = await supabaseClient
+                .from('custom_field_values')
+                .upsert(valuesToUpsert, {
+                  onConflict: 'definition_id, entity_id',
+                }); // Upsert based on unique constraint
+
+              if (upsertError) {
+                console.error(
+                  'Error upserting custom field values:',
+                  upsertError.message,
+                );
+                // Log error but don't fail the whole project creation
+              }
+            }
+          }
+        }
+
+        // TODO(template): If project_template_version_id is provided, call the instantiate-project-template function instead/after creating the basic project record.
+        // This current logic only creates the basic project record.
 
         console.log(
           `Successfully created project ${createdProject.id} by user ${user.id}`,
@@ -224,13 +360,7 @@ serve(async (req) => {
       }
       case 'PUT': {
         if (!projectId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Project ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Project ID missing in URL');
         }
         console.log(
           `Attempting to update project ${projectId} by user ${user.id}`,
@@ -285,22 +415,19 @@ serve(async (req) => {
         }
 
         // Parse request body
-        let updateData;
+        // deno-lint-ignore no-explicit-any
+        let updateData: any;
         try {
           updateData = await req.json();
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
+          // TODO(validation): Add validation for status, stage enums if present in updateData against allowed values.
         } catch (e) {
-          const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          const errorMessage = e instanceof Error
+            ? e.message
+            : 'Invalid JSON body';
+          return createBadRequestResponse(errorMessage);
         }
 
         // Prepare allowed update fields
@@ -313,10 +440,11 @@ serve(async (req) => {
           project_template_version_id: updateData.project_template_version_id,
           // company_id should generally not be changed via this endpoint
         };
-        // Using type assertion to handle TS7053
+        // Remove undefined fields so they don't overwrite existing values with null
         Object.keys(allowedUpdates).forEach((key) => {
-          if (allowedUpdates[key as keyof typeof allowedUpdates] === undefined) {
-            delete allowedUpdates[key as keyof typeof allowedUpdates];
+          const typedKey = key as keyof typeof allowedUpdates;
+          if (allowedUpdates[typedKey] === undefined) {
+            delete allowedUpdates[typedKey];
           }
         });
 
@@ -334,7 +462,7 @@ serve(async (req) => {
             `Error updating project ${projectId}:`,
             updateError.message,
           );
-          if (updateError.code === 'PGRST204') { // No rows updated/selected
+          if (updateError.code === 'PGRST204') { // PostgREST code for no rows updated/selected
             return new Response(
               JSON.stringify({ error: 'Project not found or update failed' }),
               {
@@ -343,7 +471,63 @@ serve(async (req) => {
               },
             );
           }
+          // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
           throw updateError;
+        }
+
+        // Handle custom fields provided in the request
+        if (
+          updateData.custom_fields &&
+          typeof updateData.custom_fields === 'object'
+        ) {
+          // Fetch relevant definitions for 'project' entity type
+          const { data: definitions, error: defError } = await supabaseClient
+            .from('custom_field_definitions')
+            .select('id, name')
+            .eq('entity_type', 'project');
+
+          if (defError) {
+            console.error(
+              'Error fetching custom field definitions during update:',
+              defError.message,
+            );
+          } else if (definitions) {
+            // deno-lint-ignore no-explicit-any
+            const valuesToUpsert: any[] = [];
+            const definitionMap = new Map(
+              definitions.map((d) => [d.name, d.id]),
+            );
+
+            for (const fieldName in updateData.custom_fields) {
+              if (definitionMap.has(fieldName)) {
+                valuesToUpsert.push({
+                  definition_id: definitionMap.get(fieldName),
+                  entity_id: updatedProject.id, // Use the ID of the updated project
+                  value: updateData.custom_fields[fieldName], // Store value as JSONB
+                });
+              } else {
+                console.warn(
+                  `Custom field definition not found for name during update: ${fieldName}`,
+                );
+              }
+            }
+
+            if (valuesToUpsert.length > 0) {
+              const { error: upsertError } = await supabaseClient
+                .from('custom_field_values')
+                .upsert(valuesToUpsert, {
+                  onConflict: 'definition_id, entity_id',
+                });
+
+              if (upsertError) {
+                console.error(
+                  'Error upserting custom field values during update:',
+                  upsertError.message,
+                );
+                // Log error but don't fail the whole request
+              }
+            }
+          }
         }
 
         console.log(
@@ -356,13 +540,7 @@ serve(async (req) => {
       }
       case 'DELETE': {
         if (!projectId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Project ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Project ID missing in URL');
         }
         console.log(
           `Attempting to delete project ${projectId} by user ${user.id}`,
@@ -427,6 +605,7 @@ serve(async (req) => {
             `Error deleting project ${projectId}:`,
             deleteError.message,
           );
+          // TODO(db-error): Handle specific DB errors (e.g., restricted delete due to FK dependencies from sections, milestones, etc.) with appropriate 4xx status codes (e.g., 409 Conflict).
           throw deleteError;
         }
 
@@ -438,11 +617,11 @@ serve(async (req) => {
           status: 204, // No Content
         });
       }
-      // TODO: Add routes for nested resources like /projects/{id}/milestones, /risks, /issues
+      // TODO(routing): Add routes/logic for nested resources like /projects/{id}/milestones, /risks, /issues, potentially delegating to their respective functions.
       default:
         // Handle other methods for specific project ID if applicable
         if (projectId) {
-          // TODO: Route to nested resource handlers (milestones, risks, issues) based on pathParts[4]
+          // TODO(routing): Route to nested resource handlers (milestones, risks, issues) based on pathParts[4] in the default case.
           console.warn(
             `Nested resource or method ${req.method} for project ${projectId} not implemented yet.`,
           );
@@ -452,7 +631,7 @@ serve(async (req) => {
                 `Endpoint for project ${projectId} not fully implemented`,
             }),
             {
-              status: 501,
+              status: 501, // Not Implemented
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             },
           );
@@ -465,8 +644,11 @@ serve(async (req) => {
         });
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown internal server error';
+    const errorMessage = error instanceof Error
+      ? error.message
+      : 'Unknown internal server error';
     console.error('Internal Server Error:', errorMessage);
+    // Use generic 500 for now, specific handlers should throw specific errors
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

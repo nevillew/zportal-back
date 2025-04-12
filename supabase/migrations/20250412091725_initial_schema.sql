@@ -6,17 +6,8 @@ CREATE EXTENSION IF NOT EXISTS "pg_cron";
 CREATE SCHEMA IF NOT EXISTS supabase_migrations;
 
 -- ==========================================
--- HELPER FUNCTIONS
+-- HELPER FUNCTIONS (Removed - Handled by later migrations or moddatetime)
 -- ==========================================
-
--- Function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 -- ==========================================
 -- TENANCY & USER MANAGEMENT
@@ -36,12 +27,6 @@ CREATE TABLE companies (
   log_retention_days INTEGER
 );
 
--- Create trigger for updated_at on companies
-CREATE TRIGGER update_companies_updated_at
-BEFORE UPDATE ON companies
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- User Profiles Table (linked to auth.users)
 CREATE TABLE user_profiles (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -53,12 +38,6 @@ CREATE TABLE user_profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Create trigger for updated_at on user_profiles
-CREATE TRIGGER update_user_profiles_updated_at
-BEFORE UPDATE ON user_profiles
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- Roles Table
 CREATE TABLE roles (
   role_name TEXT PRIMARY KEY,
@@ -68,12 +47,6 @@ CREATE TABLE roles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
--- Create trigger for updated_at on roles
-CREATE TRIGGER update_roles_updated_at
-BEFORE UPDATE ON roles
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
 
 -- Company Users Junction Table
 CREATE TABLE company_users (
@@ -110,12 +83,6 @@ CREATE INDEX idx_invitations_email ON invitations(email);
 CREATE INDEX idx_invitations_token ON invitations(token);
 CREATE INDEX idx_invitations_status ON invitations(status);
 
--- Create trigger for updated_at on invitations
-CREATE TRIGGER update_invitations_updated_at
-BEFORE UPDATE ON invitations
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- SSO Configurations Table
 CREATE TABLE sso_configurations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -137,12 +104,6 @@ CREATE TABLE sso_configurations (
 CREATE INDEX idx_sso_configurations_company_id ON sso_configurations(company_id);
 CREATE INDEX idx_sso_configurations_domain ON sso_configurations(domain);
 CREATE INDEX idx_sso_configurations_is_active ON sso_configurations(is_active);
-
--- Create trigger for updated_at on sso_configurations
-CREATE TRIGGER update_sso_configurations_updated_at
-BEFORE UPDATE ON sso_configurations
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
 
 -- ==========================================
 -- PROJECTS MANAGEMENT
@@ -168,12 +129,6 @@ CREATE INDEX idx_projects_status ON projects(status);
 CREATE INDEX idx_projects_stage ON projects(stage);
 CREATE INDEX idx_projects_project_owner_id ON projects(project_owner_id);
 
--- Create trigger for updated_at on projects
-CREATE TRIGGER update_projects_updated_at
-BEFORE UPDATE ON projects
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- Milestones Table
 CREATE TABLE milestones (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -196,12 +151,6 @@ CREATE INDEX idx_milestones_project_id ON milestones(project_id);
 CREATE INDEX idx_milestones_status ON milestones(status);
 CREATE INDEX idx_milestones_due_date ON milestones(due_date);
 
--- Create trigger for updated_at on milestones
-CREATE TRIGGER update_milestones_updated_at
-BEFORE UPDATE ON milestones
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- Risks Table
 CREATE TABLE risks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -223,12 +172,6 @@ CREATE INDEX idx_risks_project_id ON risks(project_id);
 CREATE INDEX idx_risks_status ON risks(status);
 CREATE INDEX idx_risks_assigned_to_user_id ON risks(assigned_to_user_id);
 
--- Create trigger for updated_at on risks
-CREATE TRIGGER update_risks_updated_at
-BEFORE UPDATE ON risks
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- Issues Table
 CREATE TABLE issues (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -249,12 +192,6 @@ CREATE INDEX idx_issues_project_id ON issues(project_id);
 CREATE INDEX idx_issues_status ON issues(status);
 CREATE INDEX idx_issues_priority ON issues(priority);
 CREATE INDEX idx_issues_assigned_to_user_id ON issues(assigned_to_user_id);
-
--- Create trigger for updated_at on issues
-CREATE TRIGGER update_issues_updated_at
-BEFORE UPDATE ON issues
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
 
 -- ==========================================
 -- TASKS & SECTIONS
@@ -278,12 +215,6 @@ CREATE TABLE sections (
 -- Create indexes for sections
 CREATE INDEX idx_sections_project_id ON sections(project_id);
 CREATE INDEX idx_sections_order ON sections("order");
-
--- Create trigger for updated_at on sections
-CREATE TRIGGER update_sections_updated_at
-BEFORE UPDATE ON sections
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
 
 -- Tasks Table
 CREATE TABLE tasks (
@@ -324,12 +255,6 @@ CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX idx_tasks_next_occurrence_date ON tasks(next_occurrence_date);
 CREATE INDEX idx_tasks_is_recurring_definition ON tasks(is_recurring_definition);
 
--- Create trigger for updated_at on tasks
-CREATE TRIGGER update_tasks_updated_at
-BEFORE UPDATE ON tasks
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- Task Files Table
 CREATE TABLE task_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -362,434 +287,13 @@ CREATE INDEX idx_task_comments_task_id ON task_comments(task_id);
 CREATE INDEX idx_task_comments_user_id ON task_comments(user_id);
 CREATE INDEX idx_task_comments_parent_comment_id ON task_comments(parent_comment_id);
 
--- Create trigger for updated_at on task_comments
-CREATE TRIGGER update_task_comments_updated_at
-BEFORE UPDATE ON task_comments
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-
 -- ==========================================
--- SECURITY HELPER FUNCTIONS
+-- SECURITY HELPER FUNCTIONS (Removed - Handled by later migration 20250412125115)
 -- ==========================================
 
--- Function to check if a user is active
-CREATE OR REPLACE FUNCTION is_active_user(user_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE user_profiles.user_id = $1
-    AND is_active = true
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to check if a user is staff
-CREATE OR REPLACE FUNCTION is_staff_user(user_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE user_profiles.user_id = $1
-    AND is_active = true
-    AND is_staff = true
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to check if a user is a member of a company
-CREATE OR REPLACE FUNCTION is_member_of_company(user_id UUID, company_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM company_users
-    WHERE company_users.user_id = $1
-    AND company_users.company_id = $2
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to check if a user has a specific permission in a company
-CREATE OR REPLACE FUNCTION has_permission(user_id UUID, company_id UUID, permission_key TEXT)
-RETURNS BOOLEAN AS $$
-DECLARE
-  user_role TEXT;
-  base_perms JSONB;
-  custom_perms JSONB;
-BEGIN
-  -- Staff users have all permissions
-  IF is_staff_user(user_id) THEN
-    RETURN TRUE;
-  END IF;
-  
-  -- Get the user's role and permissions for the company
-  SELECT 
-    cu.role,
-    r.base_permissions,
-    cu.custom_permissions
-  INTO 
-    user_role,
-    base_perms,
-    custom_perms
-  FROM 
-    company_users cu
-    JOIN roles r ON cu.role = r.role_name
-  WHERE 
-    cu.user_id = $1
-    AND cu.company_id = $2;
-  
-  -- If user is not a member of the company, they have no permissions
-  IF user_role IS NULL THEN
-    RETURN FALSE;
-  END IF;
-  
-  -- Check custom permissions first (they override base permissions)
-  IF custom_perms IS NOT NULL AND custom_perms ? permission_key THEN
-    RETURN (custom_perms ->> permission_key)::BOOLEAN;
-  END IF;
-  
-  -- Check base permissions
-  IF base_perms ? permission_key THEN
-    RETURN (base_perms ->> permission_key)::BOOLEAN;
-  END IF;
-  
-  -- Permission not found
-  RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- ==========================================
--- ROW LEVEL SECURITY POLICIES
+-- ROW LEVEL SECURITY POLICIES (Removed - Handled by later migrations)
 -- ==========================================
-
--- Enable RLS on all tables
-ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE company_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sso_configurations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE milestones ENABLE ROW LEVEL SECURITY;
-ALTER TABLE risks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE issues ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE task_files ENABLE ROW LEVEL SECURITY;
-ALTER TABLE task_comments ENABLE ROW LEVEL SECURITY;
-
--- Companies policies
-CREATE POLICY "Users can view companies they belong to" ON companies
-  FOR SELECT USING (
-    is_staff_user(auth.uid()) OR 
-    is_member_of_company(auth.uid(), id)
-  );
-
-CREATE POLICY "Staff can create companies" ON companies
-  FOR INSERT WITH CHECK (
-    is_staff_user(auth.uid())
-  );
-
-CREATE POLICY "Staff can update companies" ON companies
-  FOR UPDATE USING (
-    is_staff_user(auth.uid())
-  );
-
-CREATE POLICY "Staff can delete companies" ON companies
-  FOR DELETE USING (
-    is_staff_user(auth.uid())
-  );
-
--- User profiles policies
-CREATE POLICY "Users can view their own profile" ON user_profiles
-  FOR SELECT USING (
-    auth.uid() = user_id OR is_staff_user(auth.uid())
-  );
-
-CREATE POLICY "Users can update their own profile" ON user_profiles
-  FOR UPDATE USING (
-    auth.uid() = user_id
-  );
-
--- Roles policies
-CREATE POLICY "Authenticated users can view roles" ON roles
-  FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Staff can manage roles" ON roles
-  FOR ALL USING (
-    is_staff_user(auth.uid())
-  ) WITH CHECK (
-    is_staff_user(auth.uid()) AND 
-    (NOT is_system_role OR role_name NOT IN ('Staff Admin', 'Company Admin'))
-  );
-
--- Company users policies
-CREATE POLICY "Users can view company memberships" ON company_users
-  FOR SELECT USING (
-    is_staff_user(auth.uid()) OR 
-    user_id = auth.uid() OR 
-    is_member_of_company(auth.uid(), company_id)
-  );
-
-CREATE POLICY "Staff and company admins can manage company users" ON company_users
-  FOR ALL USING (
-    is_staff_user(auth.uid()) OR 
-    has_permission(auth.uid(), company_id, 'admin:manage_company_users')
-  );
-
--- Invitations policies
-CREATE POLICY "Staff and company admins can view invitations" ON invitations
-  FOR SELECT USING (
-    is_staff_user(auth.uid()) OR 
-    has_permission(auth.uid(), company_id, 'admin:manage_company_users')
-  );
-
-CREATE POLICY "Staff and company admins can create invitations" ON invitations
-  FOR INSERT WITH CHECK (
-    is_staff_user(auth.uid()) OR 
-    has_permission(auth.uid(), company_id, 'admin:manage_company_users')
-  );
-
-CREATE POLICY "Staff and company admins can update invitations" ON invitations
-  FOR UPDATE USING (
-    is_staff_user(auth.uid()) OR 
-    has_permission(auth.uid(), company_id, 'admin:manage_company_users')
-  );
-
--- SSO configurations policies
-CREATE POLICY "Staff can view SSO configurations" ON sso_configurations
-  FOR SELECT USING (
-    is_staff_user(auth.uid())
-  );
-
-CREATE POLICY "Staff can manage SSO configurations" ON sso_configurations
-  FOR ALL USING (
-    is_staff_user(auth.uid())
-  );
-
--- Projects policies
-CREATE POLICY "Users can view projects of their companies" ON projects
-  FOR SELECT USING (
-    is_staff_user(auth.uid()) OR 
-    is_member_of_company(auth.uid(), company_id)
-  );
-
-CREATE POLICY "Staff and project managers can create projects" ON projects
-  FOR INSERT WITH CHECK (
-    is_staff_user(auth.uid()) OR 
-    has_permission(auth.uid(), company_id, 'project:create')
-  );
-
-CREATE POLICY "Staff and project managers can update projects" ON projects
-  FOR UPDATE USING (
-    is_staff_user(auth.uid()) OR 
-    has_permission(auth.uid(), company_id, 'project:edit_settings')
-  );
-
-CREATE POLICY "Staff and project managers can delete projects" ON projects
-  FOR DELETE USING (
-    is_staff_user(auth.uid()) OR 
-    has_permission(auth.uid(), company_id, 'project:delete')
-  );
-
--- Milestones policies
-CREATE POLICY "Users can view milestones of their projects" ON milestones
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = milestones.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    )
-  );
-
-CREATE POLICY "Staff and project managers can manage milestones" ON milestones
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = milestones.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        has_permission(auth.uid(), p.company_id, 'milestone:manage')
-      )
-    )
-  );
-
--- Risks policies
-CREATE POLICY "Users can view risks of their projects" ON risks
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = risks.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    )
-  );
-
-CREATE POLICY "Staff and project managers can manage risks" ON risks
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = risks.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        has_permission(auth.uid(), p.company_id, 'risk:manage')
-      )
-    )
-  );
-
--- Issues policies
-CREATE POLICY "Users can view issues of their projects" ON issues
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = issues.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    )
-  );
-
-CREATE POLICY "Staff and project managers can manage issues" ON issues
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = issues.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        has_permission(auth.uid(), p.company_id, 'issue:manage')
-      )
-    )
-  );
-
--- Sections policies
-CREATE POLICY "Users can view sections of their projects" ON sections
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = sections.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    )
-  );
-
-CREATE POLICY "Staff and project managers can manage sections" ON sections
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM projects p
-      WHERE p.id = sections.project_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        has_permission(auth.uid(), p.company_id, 'section:manage')
-      )
-    )
-  );
-
--- Tasks policies
-CREATE POLICY "Users can view tasks of their projects" ON tasks
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM sections s
-      JOIN projects p ON s.project_id = p.id
-      WHERE s.id = tasks.section_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    )
-  );
-
-CREATE POLICY "Staff and project managers can manage tasks" ON tasks
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM sections s
-      JOIN projects p ON s.project_id = p.id
-      WHERE s.id = tasks.section_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        has_permission(auth.uid(), p.company_id, 'task:manage')
-      )
-    )
-  );
-
--- Task files policies
-CREATE POLICY "Users can view task files of their projects" ON task_files
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM tasks t
-      JOIN sections s ON t.section_id = s.id
-      JOIN projects p ON s.project_id = p.id
-      WHERE t.id = task_files.task_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    )
-  );
-
-CREATE POLICY "Staff and project managers can manage task files" ON task_files
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM tasks t
-      JOIN sections s ON t.section_id = s.id
-      JOIN projects p ON s.project_id = p.id
-      WHERE t.id = task_files.task_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        has_permission(auth.uid(), p.company_id, 'task:manage')
-      )
-    )
-  );
-
--- Task comments policies
-CREATE POLICY "Users can view task comments of their projects" ON task_comments
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM tasks t
-      JOIN sections s ON t.section_id = s.id
-      JOIN projects p ON s.project_id = p.id
-      WHERE t.id = task_comments.task_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    ) AND (
-      NOT is_internal OR is_staff_user(auth.uid())
-    )
-  );
-
-CREATE POLICY "Users can create task comments" ON task_comments
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM tasks t
-      JOIN sections s ON t.section_id = s.id
-      JOIN projects p ON s.project_id = p.id
-      WHERE t.id = task_comments.task_id
-      AND (
-        is_staff_user(auth.uid()) OR 
-        is_member_of_company(auth.uid(), p.company_id)
-      )
-    ) AND (
-      NOT is_internal OR is_staff_user(auth.uid())
-    )
-  );
-
-CREATE POLICY "Users can update their own task comments" ON task_comments
-  FOR UPDATE USING (
-    user_id = auth.uid() OR is_staff_user(auth.uid())
-  );
-
-CREATE POLICY "Staff can delete task comments" ON task_comments
-  FOR DELETE USING (
-    user_id = auth.uid() OR is_staff_user(auth.uid())
-  );
 
 -- ==========================================
 -- SEED DATA
@@ -797,8 +301,8 @@ CREATE POLICY "Staff can delete task comments" ON task_comments
 
 -- Insert default roles
 INSERT INTO roles (role_name, description, base_permissions, is_system_role)
-VALUES 
-  ('Staff Admin', 'Full access to all features across all companies', 
+VALUES
+  ('Staff Admin', 'Full access to all features across all companies',
    '{
      "view_tasks": true,
      "edit_tasks": true,
@@ -835,8 +339,8 @@ VALUES
      "section:manage": true,
      "task:manage": true
    }', true),
-  
-  ('Company Admin', 'Administrative access within a specific company', 
+
+  ('Company Admin', 'Administrative access within a specific company',
    '{
      "view_tasks": true,
      "edit_tasks": true,
@@ -870,8 +374,8 @@ VALUES
      "section:manage": true,
      "task:manage": true
    }', true),
-  
-  ('Project Manager', 'Manages projects within a company', 
+
+  ('Project Manager', 'Manages projects within a company',
    '{
      "view_tasks": true,
      "edit_tasks": true,
@@ -900,8 +404,8 @@ VALUES
      "section:manage": true,
      "task:manage": true
    }', true),
-  
-  ('Client Admin', 'Client-side administrator with elevated permissions', 
+
+  ('Client Admin', 'Client-side administrator with elevated permissions',
    '{
      "view_tasks": true,
      "edit_tasks": false,
@@ -915,8 +419,8 @@ VALUES
      "is_client_role": true,
      "can_manage_company_users": true
    }', true),
-  
-  ('Client Viewer', 'Basic client-side access for viewing project status', 
+
+  ('Client Viewer', 'Basic client-side access for viewing project status',
    '{
      "view_tasks": true,
      "view_projects": true,

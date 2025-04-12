@@ -1,6 +1,10 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  createBadRequestResponse,
+  createValidationErrorResponse,
+} from '../_shared/validation.ts'; // Import helpers
 
 console.log('Sections function started');
 
@@ -45,20 +49,51 @@ serve(async (req) => {
     switch (req.method) {
       case 'GET': {
         if (sectionId) {
-          // TODO: Implement GET /sections/{id} (Get specific section details)
-          console.log(`Fetching details for section ${sectionId}`);
-          return new Response(
-            JSON.stringify({
-              message: `GET /sections/${sectionId} not implemented yet`,
-            }),
-            {
-              status: 501,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          // Implement GET /sections/{id} (Get specific section details)
+          console.log(
+            `Fetching details for section ${sectionId}, user ${user.id}`,
           );
+
+          // Fetch the specific section
+          // RLS policy "Users can view sections of their projects" should enforce access
+          const { data: section, error: sectionError } = await supabaseClient
+            .from('sections')
+            .select('*') // Select all columns for now
+            .eq('id', sectionId)
+            .maybeSingle(); // Use maybeSingle for potential 404
+
+          if (sectionError) {
+            console.error(
+              `Error fetching section ${sectionId}:`,
+              sectionError.message,
+            );
+            throw sectionError;
+          }
+
+          if (!section) {
+            console.log(
+              `Section ${sectionId} not found or access denied for user ${user.id}`,
+            );
+            return new Response(
+              JSON.stringify({ error: 'Section not found or access denied' }),
+              {
+                status: 404, // Not Found or Forbidden
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          }
+
+          // No complex joins needed for sections currently, return as is
+          console.log(`Successfully fetched section ${sectionId}`);
+          return new Response(JSON.stringify(section), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          });
         } else if (projectId) {
           // Implement GET /sections?project_id={projectId} (List sections for a project)
-          console.log(`Fetching sections for project ${projectId}, user ${user.id}`);
+          console.log(
+            `Fetching sections for project ${projectId}, user ${user.id}`,
+          );
 
           // Check if user can access the project first
           const { data: projectCheck, error: projectCheckError } =
@@ -107,42 +142,38 @@ serve(async (req) => {
           });
         } else {
           // Require project_id for listing sections
-          return new Response(
-            JSON.stringify({
-              error: 'Bad Request: project_id query parameter is required',
-            }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createBadRequestResponse(
+            'project_id query parameter is required',
           );
         }
       }
       case 'POST': {
         // Implement POST /sections (Create section for a project)
-        console.log(`Attempting to create a section, requested by user ${user.id}`);
+        console.log(
+          `Attempting to create a section, requested by user ${user.id}`,
+        );
 
         // Parse request body
-        let newSectionData;
+        // deno-lint-ignore no-explicit-any
+        let newSectionData: any;
         try {
           newSectionData = await req.json();
-          if (
-            !newSectionData.name || !newSectionData.project_id ||
-            !newSectionData.type
-          ) {
-            throw new Error('Missing required fields: name, project_id, type');
+          const errors: { [field: string]: string[] } = {};
+          if (!newSectionData.name) errors.name = ['Section name is required'];
+          if (!newSectionData.project_id) {
+            errors.project_id = ['Project ID is required'];
           }
-          // TODO: Validate type enum
+          if (!newSectionData.type) errors.type = ['Section type is required']; // TODO(validation): Validate type enum against allowed values.
+
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
+          // TODO(validation): Validate type enum (already mentioned above, can remove this duplicate).
         } catch (e) {
-          const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          const errorMessage = e instanceof Error
+            ? e.message
+            : 'Invalid JSON body';
+          return createBadRequestResponse(errorMessage);
         }
         const targetProjectId = newSectionData.project_id;
 
@@ -154,7 +185,7 @@ serve(async (req) => {
           .single();
         if (checkError || !projectToCheck) {
           return new Response(JSON.stringify({ error: 'Project not found' }), {
-            status: 404,
+            status: 404, // Use 404 for not found
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
@@ -190,22 +221,24 @@ serve(async (req) => {
         }
 
         // Insert new section
-        const { data: createdSection, error: insertError } = await supabaseClient
-          .from('sections')
-          .insert({
-            project_id: targetProjectId,
-            name: newSectionData.name,
-            type: newSectionData.type,
-            status: newSectionData.status || 'Not Started', // Default
-            is_public: newSectionData.is_public || false, // Default
-            order: newSectionData.order || 0, // Default
-            section_template_id: newSectionData.section_template_id, // Optional
-          })
-          .select()
-          .single();
+        const { data: createdSection, error: insertError } =
+          await supabaseClient
+            .from('sections')
+            .insert({
+              project_id: targetProjectId,
+              name: newSectionData.name,
+              type: newSectionData.type,
+              status: newSectionData.status || 'Not Started', // Default
+              is_public: newSectionData.is_public || false, // Default
+              order: newSectionData.order || 0, // Default
+              section_template_id: newSectionData.section_template_id, // Optional
+            })
+            .select()
+            .single();
 
         if (insertError) {
           console.error('Error creating section:', insertError.message);
+          // TODO(db-error): Handle specific DB errors (e.g., FK violation on project_id) with appropriate 4xx status codes.
           throw insertError;
         }
 
@@ -219,15 +252,11 @@ serve(async (req) => {
       }
       case 'PUT': {
         if (!sectionId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Section ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Section ID missing in URL');
         }
-        console.log(`Attempting to update section ${sectionId}, requested by user ${user.id}`);
+        console.log(
+          `Attempting to update section ${sectionId}, requested by user ${user.id}`,
+        );
 
         // Fetch section's project and company for permission check
         const { data: sectionToCheck, error: checkError } = await supabaseClient
@@ -237,7 +266,10 @@ serve(async (req) => {
           .single();
 
         // The join might return an array even with .single(), addressing TS2339
-        const projectCompanyId = sectionToCheck?.projects?.[0]?.company_id;
+        // deno-lint-ignore no-explicit-any
+        const projectCompanyId =
+          (sectionToCheck?.projects as any)?.[0]?.company_id ??
+            (sectionToCheck?.projects as any)?.company_id;
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching section ${sectionId} for permission check or section/project/company not found:`,
@@ -284,22 +316,19 @@ serve(async (req) => {
         }
 
         // Parse request body
-        let updateData;
+        // deno-lint-ignore no-explicit-any
+        let updateData: any;
         try {
           updateData = await req.json();
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
+          // TODO(validation): Validate type enum if present in updateData against allowed values.
         } catch (e) {
-          const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          const errorMessage = e instanceof Error
+            ? e.message
+            : 'Invalid JSON body';
+          return createBadRequestResponse(errorMessage);
         }
 
         // Prepare allowed update fields
@@ -309,27 +338,34 @@ serve(async (req) => {
           status: updateData.status,
           is_public: updateData.is_public,
           order: updateData.order,
-          percent_complete: updateData.percent_complete, // Note: This might be better calculated automatically
+          // TODO(cleanup): percent_complete should be removed from allowedUpdates once the trigger (Step 1.5 in build.md) is confirmed working reliably.
+          percent_complete: updateData.percent_complete,
           section_template_id: updateData.section_template_id,
           // project_id should not be changed
         };
-        // Using type assertion to handle TS7053
+        // Remove undefined fields
         Object.keys(allowedUpdates).forEach((key) => {
-          if (allowedUpdates[key as keyof typeof allowedUpdates] === undefined) {
+          if (
+            allowedUpdates[key as keyof typeof allowedUpdates] === undefined
+          ) {
             delete allowedUpdates[key as keyof typeof allowedUpdates];
           }
         });
 
         // Update the section
-        const { data: updatedSection, error: updateError } = await supabaseClient
-          .from('sections')
-          .update(allowedUpdates)
-          .eq('id', sectionId)
-          .select()
-          .single(); // RLS should also prevent unauthorized updates
+        const { data: updatedSection, error: updateError } =
+          await supabaseClient
+            .from('sections')
+            .update(allowedUpdates)
+            .eq('id', sectionId)
+            .select()
+            .single(); // RLS should also prevent unauthorized updates
 
         if (updateError) {
-          console.error(`Error updating section ${sectionId}:`, updateError.message);
+          console.error(
+            `Error updating section ${sectionId}:`,
+            updateError.message,
+          );
           if (updateError.code === 'PGRST204') { // No rows updated/selected
             return new Response(
               JSON.stringify({ error: 'Section not found or update failed' }),
@@ -339,6 +375,7 @@ serve(async (req) => {
               },
             );
           }
+          // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
           throw updateError;
         }
 
@@ -350,15 +387,11 @@ serve(async (req) => {
       }
       case 'DELETE': {
         if (!sectionId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Section ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Section ID missing in URL');
         }
-        console.log(`Attempting to delete section ${sectionId}, requested by user ${user.id}`);
+        console.log(
+          `Attempting to delete section ${sectionId}, requested by user ${user.id}`,
+        );
 
         // Fetch section's project and company for permission check
         const { data: sectionToCheck, error: checkError } = await supabaseClient
@@ -368,7 +401,10 @@ serve(async (req) => {
           .single();
 
         // The join might return an array even with .single(), addressing TS2339
-        const projectCompanyId = sectionToCheck?.projects?.[0]?.company_id;
+        // deno-lint-ignore no-explicit-any
+        const projectCompanyId =
+          (sectionToCheck?.projects as any)?.[0]?.company_id ??
+            (sectionToCheck?.projects as any)?.company_id;
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching section ${sectionId} for permission check or section/project/company not found:`,
@@ -422,7 +458,11 @@ serve(async (req) => {
           .eq('id', sectionId);
 
         if (deleteError) {
-          console.error(`Error deleting section ${sectionId}:`, deleteError.message);
+          console.error(
+            `Error deleting section ${sectionId}:`,
+            deleteError.message,
+          );
+          // TODO(db-error): Handle specific DB errors (e.g., restricted delete due to FK dependencies from tasks) with appropriate 4xx status codes (e.g., 409 Conflict).
           throw deleteError;
         }
 
@@ -440,8 +480,11 @@ serve(async (req) => {
         });
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown internal server error';
+    const errorMessage = error instanceof Error
+      ? error.message
+      : 'Unknown internal server error';
     console.error('Internal Server Error:', errorMessage);
+    // Use generic 500 for now, specific handlers should throw specific errors
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

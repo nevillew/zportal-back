@@ -3,6 +3,7 @@
     "std/": "https://deno.land/std@0.177.0/",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
     "stripe": "https://esm.sh/stripe@11.1.0?target=deno",
-    "cors": "https://deno.land/x/cors@v1.2.2/mod.ts"
+    "cors": "https://deno.land/x/cors@v1.2.2/mod.ts",
+    "rrule-deno": "https://deno.land/x/rrule_deno@v1.0.0/mod.ts"
   }
 }

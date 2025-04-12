@@ -304,6 +304,8 @@
   - `name`: `text` (Required, constraint: `length > 0 AND length <= 100`)
   - `description`: `text` (Optional)
   - `status`: `text` (Required, Enum or check constraint: "Open", "In Progress", "Complete", "Blocked")
+  - `priority`: `text` (Enum or check constraint: 'Low', 'Medium', 'High', 'Critical'. Default: 'Medium', Nullable)
+  - `actual_hours`: `numeric` (Nullable. Actual time spent)
   - `order`: `integer` (default: 0, Not Null. For sorting tasks within a section/parent)
   - `due_date`: `timestamp with time zone` (Optional)
   - `assigned_to_id`: `uuid` (Foreign Key referencing `auth.users.id` ON DELETE SET NULL, Nullable, Indexed)

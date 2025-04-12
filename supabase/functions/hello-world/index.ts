@@ -4,22 +4,49 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { corsHeaders } from "../_shared/cors.ts"; // Import CORS headers
 
 console.log("Hello from Functions!")
 
 Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } },
-  )
-})
+  try {
+    const body = await req.json();
+    const name = body?.name; // Safely access name
+
+    if (!name) {
+      return new Response(
+        JSON.stringify({ error: "Missing 'name' in request body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const data = {
+      message: `Hello ${name}!`,
+    };
+
+    return new Response(
+      JSON.stringify(data),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Add CORS headers to actual response
+    );
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error processing request';
+    console.error("Error processing request:", errorMessage);
+    return new Response(
+      JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+});
 
 /* To invoke locally:
+  }
+
 
   1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
   2. Make an HTTP request:

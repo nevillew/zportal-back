@@ -18,37 +18,37 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // List of buckets to create
 const buckets = [
   {
-    name: 'company_logos',
+    name: 'company-logos', // Changed underscore to hyphen
     public: true,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/svg+xml'],
     fileSizeLimit: 5 * 1024 * 1024, // 5MB
   },
   {
-    name: 'user_avatars',
+    name: 'user-avatars', // Changed underscore to hyphen
     public: true,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/svg+xml'],
     fileSizeLimit: 2 * 1024 * 1024, // 2MB
   },
   {
-    name: 'task_attachments',
+    name: 'task-attachments', // Changed underscore to hyphen
     public: false,
     allowedMimeTypes: ['*'],
     fileSizeLimit: 50 * 1024 * 1024, // 50MB
   },
   {
-    name: 'meeting_recordings',
+    name: 'meeting-recordings', // Changed underscore to hyphen
     public: false,
     allowedMimeTypes: ['video/mp4', 'audio/mpeg', 'audio/mp4'],
     fileSizeLimit: 500 * 1024 * 1024, // 500MB
   },
   {
-    name: 'training_images',
+    name: 'training-images', // Changed underscore to hyphen
     public: true,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/svg+xml'],
     fileSizeLimit: 10 * 1024 * 1024, // 10MB
   },
   {
-    name: 'training_content',
+    name: 'training-content', // Changed underscore to hyphen
     public: false,
     allowedMimeTypes: ['application/pdf', 'video/mp4', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
     fileSizeLimit: 100 * 1024 * 1024, // 100MB
@@ -60,13 +60,13 @@ const buckets = [
     fileSizeLimit: 5 * 1024 * 1024, // 5MB
   },
   {
-    name: 'badge_images',
+    name: 'badge-images', // Changed underscore to hyphen
     public: true,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/svg+xml'],
     fileSizeLimit: 1 * 1024 * 1024, // 1MB
   },
   {
-    name: 'generated_documents',
+    name: 'generated-documents', // Changed underscore to hyphen
     public: false,
     allowedMimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
     fileSizeLimit: 20 * 1024 * 1024, // 20MB

@@ -1,6 +1,10 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import {
+  createBadRequestResponse,
+  createValidationErrorResponse,
+} from '../_shared/validation.ts'; // Import helpers
 
 console.log('Risks function started');
 
@@ -45,18 +49,58 @@ serve(async (req) => {
     switch (req.method) {
       case 'GET': {
         if (riskId) {
-          // TODO: Implement GET /risks/{id} (Get specific risk details)
-          console.log(`Fetching details for risk ${riskId}`);
-          return new Response(
-            JSON.stringify({ message: `GET /risks/${riskId} not implemented yet` }),
-            {
-              status: 501,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          // Implement GET /risks/{id} (Get specific risk details)
+          console.log(`Fetching details for risk ${riskId}, user ${user.id}`);
+
+          // Fetch the specific risk with related data
+          // RLS policy "Users can view risks of their projects" should enforce access
+          const { data: risk, error: riskError } = await supabaseClient
+            .from('risks')
+            .select(`
+              *,
+              reporter:reported_by_user_id ( full_name ),
+              assignee:assigned_to_user_id ( full_name )
+            `)
+            .eq('id', riskId)
+            .maybeSingle(); // Use maybeSingle for potential 404
+
+          if (riskError) {
+            console.error(`Error fetching risk ${riskId}:`, riskError.message);
+            throw riskError;
+          }
+
+          if (!risk) {
+            console.log(
+              `Risk ${riskId} not found or access denied for user ${user.id}`,
+            );
+            return new Response(
+              JSON.stringify({ error: 'Risk not found or access denied' }),
+              {
+                status: 404, // Not Found or Forbidden
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          }
+
+          // Format response similar to the list endpoint
+          const riskDetails = {
+            ...risk,
+            reported_by_name: risk.reporter?.full_name,
+            assigned_to_name: risk.assignee?.full_name,
+            reporter: undefined,
+            assignee: undefined,
+          };
+
+          console.log(`Successfully fetched risk ${riskId}`);
+          return new Response(JSON.stringify(riskDetails), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          });
         } else if (projectId) {
           // Implement GET /risks?project_id={projectId} (List risks for a project)
-          console.log(`Fetching risks for project ${projectId}, user ${user.id}`);
+          console.log(
+            `Fetching risks for project ${projectId}, user ${user.id}`,
+          );
 
           // Check if user can access the project first
           const { data: projectCheck, error: projectCheckError } =
@@ -109,46 +153,48 @@ serve(async (req) => {
             assignee: undefined, // Remove nested object
           })) || [];
 
-          console.log(`Found ${risksList.length} risks for project ${projectId}`);
+          console.log(
+            `Found ${risksList.length} risks for project ${projectId}`,
+          );
           return new Response(JSON.stringify(risksList), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
           });
         } else {
           // Require project_id for listing risks
-          return new Response(
-            JSON.stringify({
-              error: 'Bad Request: project_id query parameter is required',
-            }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createBadRequestResponse(
+            'project_id query parameter is required',
           );
         }
       }
       case 'POST': {
         // Implement POST /risks (Create risk for a project)
-        console.log(`Attempting to create a risk, requested by user ${user.id}`);
+        console.log(
+          `Attempting to create a risk, requested by user ${user.id}`,
+        );
 
         // Parse request body
-        let newRiskData;
+        // deno-lint-ignore no-explicit-any
+        let newRiskData: any;
         try {
           newRiskData = await req.json();
-          if (!newRiskData.description || !newRiskData.project_id) {
-            throw new Error('Missing required fields: description, project_id');
+          const errors: { [field: string]: string[] } = {};
+          if (!newRiskData.description) {
+            errors.description = ['Description is required'];
           }
-          // TODO: Validate status, probability, impact enums if provided
+          if (!newRiskData.project_id) {
+            errors.project_id = ['Project ID is required'];
+          }
+          // TODO(validation): Validate status, probability, impact enums if provided against allowed values.
+
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
         } catch (e) {
-          const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          const errorMessage = e instanceof Error
+            ? e.message
+            : 'Invalid JSON body';
+          return createBadRequestResponse(errorMessage);
         }
         const targetProjectId = newRiskData.project_id;
 
@@ -159,9 +205,9 @@ serve(async (req) => {
           .eq('id', targetProjectId)
           .single();
         if (checkError || !projectToCheck) {
-          return new Response(JSON.stringify({ error: 'Project not found' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          // Use validation response if project_id is invalid
+          return createValidationErrorResponse({
+            project_id: ['Project not found or access denied'],
           });
         }
         const projectCompanyId = projectToCheck.company_id;
@@ -214,6 +260,7 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error creating risk:', insertError.message);
+          // TODO(db-error): Handle specific DB errors (e.g., FK violation on project_id) with appropriate 4xx status codes.
           throw insertError;
         }
 
@@ -227,15 +274,11 @@ serve(async (req) => {
       }
       case 'PUT': {
         if (!riskId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Risk ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Risk ID missing in URL');
         }
-        console.log(`Attempting to update risk ${riskId}, requested by user ${user.id}`);
+        console.log(
+          `Attempting to update risk ${riskId}, requested by user ${user.id}`,
+        );
 
         // Fetch risk's project and company for permission check
         const { data: riskToCheck, error: checkError } = await supabaseClient
@@ -245,7 +288,10 @@ serve(async (req) => {
           .single();
 
         // The join might return an array even with .single(), addressing TS2339
-        const projectCompanyId = riskToCheck?.projects?.[0]?.company_id;
+        // deno-lint-ignore no-explicit-any
+        const projectCompanyId =
+          (riskToCheck?.projects as any)?.[0]?.company_id ??
+            (riskToCheck?.projects as any)?.company_id;
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching risk ${riskId} for permission check or risk/project/company not found:`,
@@ -292,22 +338,19 @@ serve(async (req) => {
         }
 
         // Parse request body
-        let updateData;
+        // deno-lint-ignore no-explicit-any
+        let updateData: any;
         try {
           updateData = await req.json();
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
+          // TODO(validation): Validate status, probability, impact enums if provided against allowed values.
         } catch (e) {
-          const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          console.error('Error parsing request body:', errorMessage);
-          return new Response(
-            JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          const errorMessage = e instanceof Error
+            ? e.message
+            : 'Invalid JSON body';
+          return createBadRequestResponse(errorMessage);
         }
 
         // Prepare allowed update fields
@@ -321,9 +364,11 @@ serve(async (req) => {
           contingency_plan: updateData.contingency_plan,
           // project_id and reported_by_user_id should not be changed
         };
-        // Using type assertion to handle TS7053
+        // Remove undefined fields
         Object.keys(allowedUpdates).forEach((key) => {
-          if (allowedUpdates[key as keyof typeof allowedUpdates] === undefined) {
+          if (
+            allowedUpdates[key as keyof typeof allowedUpdates] === undefined
+          ) {
             delete allowedUpdates[key as keyof typeof allowedUpdates];
           }
         });
@@ -347,6 +392,7 @@ serve(async (req) => {
               },
             );
           }
+          // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
           throw updateError;
         }
 
@@ -358,15 +404,11 @@ serve(async (req) => {
       }
       case 'DELETE': {
         if (!riskId) {
-          return new Response(
-            JSON.stringify({ error: 'Bad Request: Risk ID missing in URL' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createBadRequestResponse('Risk ID missing in URL');
         }
-        console.log(`Attempting to delete risk ${riskId}, requested by user ${user.id}`);
+        console.log(
+          `Attempting to delete risk ${riskId}, requested by user ${user.id}`,
+        );
 
         // Fetch risk's project and company for permission check
         const { data: riskToCheck, error: checkError } = await supabaseClient
@@ -376,7 +418,10 @@ serve(async (req) => {
           .single();
 
         // The join might return an array even with .single(), addressing TS2339
-        const projectCompanyId = riskToCheck?.projects?.[0]?.company_id;
+        // deno-lint-ignore no-explicit-any
+        const projectCompanyId =
+          (riskToCheck?.projects as any)?.[0]?.company_id ??
+            (riskToCheck?.projects as any)?.company_id;
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching risk ${riskId} for permission check or risk/project/company not found:`,
@@ -430,6 +475,7 @@ serve(async (req) => {
 
         if (deleteError) {
           console.error(`Error deleting risk ${riskId}:`, deleteError.message);
+          // TODO(db-error): Handle specific DB errors (e.g., restricted delete due to FK dependency) with appropriate 4xx status codes.
           throw deleteError;
         }
 
@@ -447,8 +493,11 @@ serve(async (req) => {
         });
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown internal server error';
+    const errorMessage = error instanceof Error
+      ? error.message
+      : 'Unknown internal server error';
     console.error('Internal Server Error:', errorMessage);
+    // Use generic 500 for now, specific handlers should throw specific errors
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

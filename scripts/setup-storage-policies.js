@@ -17,9 +17,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Define the storage policies
 const policies = [
-  // company_logos bucket policies
+  // company-logos bucket policies
   {
-    bucket: 'company_logos',
+    bucket: 'company-logos', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow public read access to company logos',
@@ -56,9 +56,9 @@ const policies = [
     ],
   },
   
-  // user_avatars bucket policies
+  // user-avatars bucket policies
   {
-    bucket: 'user_avatars',
+    bucket: 'user-avatars', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow public read access to user avatars',
@@ -95,9 +95,9 @@ const policies = [
     ],
   },
   
-  // task_attachments bucket policies
+  // task-attachments bucket policies
   {
-    bucket: 'task_attachments',
+    bucket: 'task-attachments', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow authenticated users to read task attachments for their company',
@@ -156,9 +156,9 @@ const policies = [
     ],
   },
   
-  // meeting_recordings bucket policies
+  // meeting-recordings bucket policies
   {
-    bucket: 'meeting_recordings',
+    bucket: 'meeting-recordings', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow authenticated users to read meeting recordings for their company',
@@ -201,9 +201,9 @@ const policies = [
     ],
   },
   
-  // training_images bucket policies
+  // training-images bucket policies
   {
-    bucket: 'training_images',
+    bucket: 'training-images', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow public read access to training images',
@@ -249,9 +249,9 @@ const policies = [
     ],
   },
   
-  // training_content bucket policies
+  // training-content bucket policies
   {
-    bucket: 'training_content',
+    bucket: 'training-content', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow authenticated users to read training content for their company',
@@ -353,9 +353,9 @@ const policies = [
     ],
   },
   
-  // badge_images bucket policies
+  // badge-images bucket policies
   {
-    bucket: 'badge_images',
+    bucket: 'badge-images', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow public read access to badge images',
@@ -401,9 +401,9 @@ const policies = [
     ],
   },
   
-  // generated_documents bucket policies
+  // generated-documents bucket policies
   {
-    bucket: 'generated_documents',
+    bucket: 'generated-documents', // Changed underscore to hyphen
     policies: [
       {
         name: 'Allow authenticated users to read their own generated documents',

@@ -42,3 +42,4 @@ coverage/
 .turbo
 .cache/
 .temp/
+.aider*
