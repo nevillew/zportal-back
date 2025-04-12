@@ -27,7 +27,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement database function `clone_project` for project duplication (Note: Complex SQL).
 - [ ] **Error Handling & Logging:**
     - [x] Establish `background_job_failures` table.
-    - [ ] Implement logging to `background_job_failures` in `generate-recurring-tasks` function.
+    - [x] Implement logging to `background_job_failures` in `generate-recurring-tasks` function.
     - [ ] Implement logging to `background_job_failures` in future scheduled functions (Data Retention, SLA Check, etc.).
     - [ ] Add Sentry SDK initialization and error capturing to all Edge Functions (Requires Sentry DSN setup externally).
     - [ ] Refactor `companies` function to return standardized error responses.

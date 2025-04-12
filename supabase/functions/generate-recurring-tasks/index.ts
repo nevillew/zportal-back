@@ -151,7 +151,12 @@ serve(async (_req) => {
           parseErrorMessage,
         );
         // Log failure and continue to next definition
-        // await logFailure('generate-recurring-tasks', definition, `RRULE parse error: ${parseErrorMessage}`);
+        await logFailure(
+          supabaseAdminClient,
+          'generate-recurring-tasks',
+          definition,
+          parseError,
+        );
         continue;
       }
 
@@ -224,7 +229,12 @@ serve(async (_req) => {
             updateError.message,
           );
           // Log failure but continue trying to update others
-          // await logFailure('generate-recurring-tasks', update, `Definition update error: ${updateError.message}`);
+          await logFailure(
+            supabaseAdminClient,
+            'generate-recurring-tasks',
+            update,
+            updateError,
+          );
         }
       }
       console.log('Finished updating definition dates.');
@@ -242,11 +252,53 @@ serve(async (_req) => {
       ? error.message
       : 'Unknown internal server error during generation';
     console.error('Recurring Task Generation Error:', errorMessage);
-    // await logFailure('generate-recurring-tasks', null, `Generation error: ${errorMessage}`);
+    await logFailure(
+      supabaseAdminClient,
+      'generate-recurring-tasks',
+      null,
+      error,
+    );
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, // Added headers
     });
   }
 });
 
-// TODO(logging): Add helper function logFailure(jobName, payload, errorMessage) to write to a dedicated background_job_failures table for better monitoring.
+// --- Helper Function to Log Failures ---
+async function logFailure(
+  client: SupabaseClient,
+  jobName: string,
+  payload: any | null,
+  error: Error,
+) {
+  console.error(`Logging failure for job ${jobName}:`, error.message);
+  try {
+    const { error: logInsertError } = await client
+      .from('background_job_failures')
+      .insert({
+        job_name: jobName,
+        payload: payload ? JSON.parse(JSON.stringify(payload)) : null, // Ensure payload is serializable JSONB
+        error_message: error.message,
+        stack_trace: error.stack, // Optional: include stack trace
+        status: 'logged', // Default status
+      });
+
+    if (logInsertError) {
+      console.error(
+        '!!! Failed to log background job failure to database:',
+        logInsertError.message,
+      );
+    } else {
+      console.log(`Failure logged successfully for job ${jobName}.`);
+    }
+  } catch (e) {
+    // Catch errors during the logging process itself
+    const loggingErrorMessage = e instanceof Error
+      ? e.message
+      : 'Unknown error during logging';
+    console.error(
+      `!!! CRITICAL: Error occurred while trying to log job failure: ${loggingErrorMessage}`,
+    );
+  }
+}
