@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom", "dom.iterable", "dom.asynciterable"]
+  },
+  "lint": {
+    "files": {
+      "include": ["./"],
+      "exclude": ["./_shared/"] // Example: exclude shared directory if needed
+    },
+    "rules": {
+      "tags": ["recommended"],
+      "include": [],
+      "exclude": []
+    }
+  },
+  "fmt": {
+    "files": {
+      "include": ["./"],
+      "exclude": ["./_shared/"]
+    },
+    "options": {
+      "useTabs": false,
+      "lineWidth": 80,
+      "indentWidth": 2,
+      "singleQuote": true,
+      "proseWrap": "preserve"
+    }
+  },
+  "importMap": "./import_map.json" // We'll create this next
+}
