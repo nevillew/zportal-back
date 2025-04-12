@@ -8,7 +8,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement RLS helper functions (`is_active_user`, `is_staff_user`, `is_member_of_company`, `has_permission`) as `SECURITY DEFINER` functions.
     - [x] Define and apply RLS policies to core tables (`companies`, `projects`, `tasks`, `documents`, `milestones`, `risks`, `issues`, `task_files`, `task_comments`, `user_profiles`, `sections`).
     - [x] Define and apply RLS policies for `meetings`.
-    - [ ] Define and apply RLS policies for `training_modules`, `training_enrollments`, `training_completions`.
+    - [x] Define and apply RLS policies for `courses`, `lessons`, `course_assignments`, `lesson_completions`.
     - [ ] Define and apply RLS policies for `badges` and `user_badges`.
     - [ ] Define and apply RLS policies for `custom_field_values` (Requires careful consideration of entity context).
     - [ ] Define and apply RLS policies for `reports` and `report_schedules`.
