@@ -21,6 +21,7 @@
 -   **Reporting Views & RPCs (Batch):** Created SQL views and corresponding RPC functions for remaining reports: `view_company_training_compliance`, `view_open_risks_issues`, `view_template_performance`, `view_client_engagement_summary`, `view_onboarding_cycle_time`, `view_document_usage`, `view_custom_field_analysis`. RPCs include filtering, pagination, and RLS checks. (Migrations: `20250415200100` to `20250415201400`)
 -   **Time Tracking:** Created `time_entries` and `active_timers` tables with RLS policies. Implemented RPC functions `start_task_timer`, `stop_task_timer`, and `log_manual_time` for managing time tracking. (Migrations: `20250415210100` to `20250415210400`)
 -   **Announcements:** Created `announcements` table with RLS policies. Implemented Edge Function (`announcements`) for CRUD operations, restricting modifications to staff users. (Migration: `20250415220100_create_announcements_table.sql`, Function: `supabase/functions/announcements/index.ts`)
+-   **Mentions:** Created PostgreSQL trigger function `process_mentions_and_notify` to parse `@mentions` in `task_comments`, resolve users by full name, and call the `send-notification` function via `pg_net`. Applied trigger to `task_comments`. (Migration: `20250415230100_add_mention_trigger.sql`)
 
 ## 2025-04-14
 

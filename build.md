@@ -74,11 +74,11 @@ This document outlines the remaining implementation steps and identified TODOs f
 - [x] **Announcement Endpoints:**
     - [x] Create Edge Function for CRUD operations on `announcements` table.
     - [x] Implement permission checks (Staff manage, users read published/relevant).
-- [ ] **@mention Processor & Notification:**
-    - [ ] Create trigger function on `task_comments`/`document_comments` (or other relevant tables).
-    - [ ] Implement logic to parse `content` for mentions (e.g., `@username` or `@userid`).
-    - [ ] Implement logic to identify mentioned users.
-    - [ ] Implement logic to create records in `notifications` table (calls Notification Sender).
+- [x] **@mention Processor & Notification:**
+    - [x] Create trigger function (`process_mentions_and_notify`) on `task_comments`.
+    - [x] Implement logic to parse `content` for mentions (e.g., `@Full Name`).
+    - [x] Implement logic to identify mentioned users (via `user_profiles.full_name` ILIKE - known limitation).
+    - [x] Implement logic to call Notification Sender function via `pg_net`.
 - [ ] **Document Management API:** (If needed beyond PostgREST)
     - [ ] Create Edge Function for CRUD operations on `documents`.
     - [ ] _Note: Versioning/Approval logic requires schema definition first._
