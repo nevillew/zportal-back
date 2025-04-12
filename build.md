@@ -79,9 +79,9 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement logic to parse `content` for mentions (e.g., `@Full Name`).
     - [x] Implement logic to identify mentioned users (via `user_profiles.full_name` ILIKE - known limitation).
     - [x] Implement logic to call Notification Sender function via `pg_net`.
-- [ ] **Document Management API:** (If needed beyond PostgREST)
-    - [ ] Create Edge Function for CRUD operations on `documents`.
-    - [ ] _Note: Versioning/Approval logic requires schema definition first._
+- [x] **Document Management API:** (If needed beyond PostgREST)
+    - [x] Create Edge Function for CRUD operations on `documents`.
+    - [x] _Note: Versioning/Approval logic requires schema definition first._
 - [ ] **Page Management API:** (If needed beyond PostgREST)
     - [ ] Create Edge Function for CRUD operations on `pages`.
 - [ ] **Feedback Submission API:**
