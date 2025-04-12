@@ -15,6 +15,60 @@ import {
 
 console.log('Milestones function started');
 
+
+// --- Helper: Get Secret from Vault ---
+// (Assuming this helper exists or is added, similar to send-notification function)
+async function getSecret(
+  client: SupabaseClient,
+  secretName: string,
+): Promise<string | null> {
+  console.log(`Attempting to fetch secret: ${secretName}`);
+  try {
+    const secretValue = Deno.env.get(secretName); // Using env var as placeholder/fallback
+    if (!secretValue) {
+      console.warn(`Secret ${secretName} not found in environment variables.`);
+      // TODO: Implement actual Vault fetching logic here using RPC or other secure method
+      return null;
+    }
+    console.log(`Successfully retrieved secret: ${secretName}`);
+    return secretValue;
+  } catch (error) {
+    console.error(`Error fetching secret ${secretName}:`, error);
+    return null;
+  }
+}
+
+// --- Helper: Log Failure ---
+// (Assuming this helper exists or is added, similar to generate-recurring-tasks function)
+async function logFailure(
+  client: SupabaseClient,
+  jobName: string,
+  payload: any | null,
+  error: Error,
+) {
+  console.error(`Logging failure for job ${jobName}:`, error.message);
+  try {
+    const { error: logInsertError } = await client
+      .from('background_job_failures')
+      .insert({
+        job_name: jobName,
+        payload: payload ? JSON.parse(JSON.stringify(payload)) : null,
+        error_message: error.message,
+        stack_trace: error.stack,
+        status: 'logged',
+      });
+    if (logInsertError) {
+      console.error('!!! Failed to log failure to database:', logInsertError.message);
+    } else {
+      console.log(`Failure logged successfully for job ${jobName}.`);
+    }
+  } catch (e) {
+    const loggingErrorMessage = e instanceof Error ? e.message : 'Unknown error during logging';
+    console.error(`!!! CRITICAL: Error occurred while trying to log job failure: ${loggingErrorMessage}`);
+  }
+}
+
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -249,10 +303,78 @@ serve(async (req) => {
           }
           // --- End Update ---
 
-          // TODO(notification): Trigger notification upon successful milestone approval.
-
           console.log(
             `Successfully approved milestone ${milestoneId} by user ${user.id}`,
+          );
+
+          // --- Trigger Notification ---
+          try {
+            // Fetch details needed for notification
+            const { data: notifyData, error: notifyFetchError } = await supabaseClient
+              .from('milestones')
+              .select(`
+                name,
+                projects ( name, project_owner_id, user_profiles ( email ) )
+              `)
+              .eq('id', milestoneId)
+              .single();
+
+            if (notifyFetchError || !notifyData) {
+              throw new Error(`Failed to fetch data for notification: ${notifyFetchError?.message}`);
+            }
+
+            const milestoneName = notifyData.name;
+            const projectName = notifyData.projects?.name;
+            const projectOwnerId = notifyData.projects?.project_owner_id;
+            const projectOwnerEmail = notifyData.projects?.user_profiles?.email;
+            const approverName = (await supabaseClient.from('user_profiles').select('full_name').eq('user_id', user.id).single()).data?.full_name || 'Someone';
+
+            if (projectOwnerId && projectOwnerEmail && projectOwnerId !== user.id) { // Don't notify if approver is owner
+              const notificationSubject = `Milestone Approved: ${milestoneName} in ${projectName}`;
+              const notificationMessage = `${approverName} approved the milestone "${milestoneName}" in project "${projectName}".`;
+
+              const internalAuthSecret = await getSecret(supabaseClient, 'INTERNAL_FUNCTION_SECRET');
+              if (!internalAuthSecret) throw new Error('Internal function secret not configured for notifications.');
+
+              const notificationPayload = {
+                recipients: [{ email: projectOwnerEmail }],
+                type: 'email',
+                subject: notificationSubject,
+                message: notificationMessage,
+                context: {
+                  trigger: 'milestone_approved',
+                  milestone_id: milestoneId,
+                  project_id: milestoneToCheck.project_id,
+                  approver_user_id: user.id,
+                },
+              };
+
+              const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+              const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${internalAuthSecret}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(notificationPayload),
+              });
+
+              if (!response.ok) {
+                 console.error(`Failed to send milestone approval notification: ${response.status} ${await response.text()}`);
+                 // Log failure but don't fail the main request
+                 await logFailure(supabaseClient, 'milestone-approval-notification', notificationPayload, new Error(`Notification function failed with status ${response.status}`));
+              } else {
+                 console.log(`Milestone approval notification sent successfully to ${projectOwnerEmail}.`);
+              }
+            } else {
+               console.log(`Skipping notification for milestone ${milestoneId} (No owner, owner has no email, or approver is owner).`);
+            }
+          } catch (notifyError) {
+             console.error(`Error preparing or sending milestone approval notification for ${milestoneId}:`, notifyError.message);
+             // Log failure but don't fail the main request
+             await logFailure(supabaseClient, 'milestone-approval-notification', { milestoneId }, notifyError);
+          }
+          // --- End Notification ---
           );
           return new Response(JSON.stringify(approvedMilestone), {
             status: 200,
