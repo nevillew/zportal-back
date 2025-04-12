@@ -9,6 +9,7 @@
 -   **Storage Policies:** Refined `task-attachments` storage bucket policies (SELECT, INSERT, DELETE) to use RLS helper functions (`can_access_project`, `is_staff_user`, `has_permission`) for consistency. (`scripts/setup-storage-policies.js`)
 -   **Notification Sender Function:** Created new Edge Function (`send-notification`) to handle sending notifications via Email (Resend) and Slack. Includes input validation, secret fetching (placeholder for Vault), API call logic using `fetch`, and basic internal authentication check. (`supabase/functions/send-notification/index.ts`)
 -   **Accept Invite Function:** Created new Edge Function (`accept-invite`) to handle user invitation acceptance. Validates token, status, expiry, and user email. Creates `company_users` record and updates invitation status. (`supabase/functions/accept-invite/index.ts`)
+-   **SSO JIT Provisioning Handler:** Created new Edge Function (`sso-jit-provisioning`) triggered by Supabase Auth Hook. Parses claims, finds company SSO config via domain, maps attributes (name, role) based on config, upserts user profile and company user association, returns custom claims for JWT. (`supabase/functions/sso-jit-provisioning/index.ts`)
 
 ## 2025-04-14
 

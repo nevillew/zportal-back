@@ -44,9 +44,9 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Implement logic to verify invitation token (check status, expiry).
     - [x] Implement logic to create `company_users` record.
     - [x] Implement logic to update invitation status.
-- [ ] **SSO JIT Provisioning Handler:** (Requires Supabase Auth Hook setup)
-    - [ ] Create Edge Function triggered by Auth Hook.
-    - [ ] Implement logic to receive claims, lookup `sso_configurations`, parse attributes, create/update `user_profiles`/`company_users`, handle role mapping.
+- [x] **SSO JIT Provisioning Handler:** (Requires Supabase Auth Hook setup)
+    - [x] Create Edge Function triggered by Auth Hook.
+    - [x] Implement logic to receive claims, lookup `sso_configurations`, parse attributes, create/update `user_profiles`/`company_users`, handle role mapping.
 - [ ] **Global Search RPC:** (Requires FTS setup)
     - [ ] Create RPC function `global_search(query text, filters jsonb, page int, page_size int)`.
     - [ ] Implement query against `search_index` table.
