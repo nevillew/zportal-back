@@ -103,51 +103,58 @@ const policies = [
         name: 'Allow authenticated users to read task attachments for their company',
         definition: {
           operation: 'SELECT',
+          // Use can_access_project helper function implicitly via task RLS check
           expression: `
-            auth.role() = 'authenticated' AND 
+            auth.role() = 'authenticated' AND
             EXISTS (
               SELECT 1 FROM tasks t
-              JOIN sections s ON t.section_id = s.id
-              JOIN projects p ON s.project_id = p.id
-              JOIN company_users cu ON p.company_id = cu.company_id
-              WHERE 
-                cu.user_id = auth.uid() AND
-                (storage.foldername(name))[1] = t.id::text
+              WHERE t.id::text = (storage.foldername(name))[1]
+              -- RLS on tasks table implicitly checks project access
             )
           `,
           role: 'authenticated',
         },
       },
       {
-        name: 'Allow authenticated users to upload task attachments for their tasks',
+        name: 'Allow users with task:manage permission to upload task attachments',
         definition: {
           operation: 'INSERT',
+          // Check if user has 'task:manage' permission on the project associated with the task ID in the path
           expression: `
-            auth.role() = 'authenticated' AND 
+            auth.role() = 'authenticated' AND
             EXISTS (
               SELECT 1 FROM tasks t
               JOIN sections s ON t.section_id = s.id
               JOIN projects p ON s.project_id = p.id
-              JOIN company_users cu ON p.company_id = cu.company_id
-              WHERE 
-                cu.user_id = auth.uid() AND
-                (storage.foldername(name))[1] = t.id::text
+              WHERE t.id::text = (storage.foldername(name))[1]
+              AND (
+                is_staff_user(auth.uid()) OR
+                has_permission(auth.uid(), p.company_id, 'task:manage')
+              )
             )
           `,
           role: 'authenticated',
         },
       },
       {
-        name: 'Allow authenticated users to delete their own task attachments',
+        name: 'Allow users with task:manage permission or uploaders to delete task attachments',
         definition: {
           operation: 'DELETE',
+          // Check if user has 'task:manage' permission OR if they are the uploader (metadata check needed)
+          // Note: We can't easily check uploader metadata directly in storage policy SQL.
+          // Relying on RLS on the task_files table for delete authorization is better.
+          // This storage policy allows deletion if the user *could* manage the task.
           expression: `
-            auth.role() = 'authenticated' AND 
-            (
-              -- User is staff
-              (SELECT is_staff FROM user_profiles WHERE user_id = auth.uid()) OR
-              -- User uploaded the file
-              (storage.foldername(name))[2] = auth.uid()::text
+            auth.role() = 'authenticated' AND
+            EXISTS (
+              SELECT 1 FROM tasks t
+              JOIN sections s ON t.section_id = s.id
+              JOIN projects p ON s.project_id = p.id
+              WHERE t.id::text = (storage.foldername(name))[1]
+              AND (
+                is_staff_user(auth.uid()) OR
+                has_permission(auth.uid(), p.company_id, 'task:manage')
+              )
             )
           `,
           role: 'authenticated',
@@ -164,14 +171,10 @@ const policies = [
         name: 'Allow authenticated users to read meeting recordings for their company',
         definition: {
           operation: 'SELECT',
+          // Use is_member_of_company helper function
           expression: `
-            auth.role() = 'authenticated' AND 
-            EXISTS (
-              SELECT 1 FROM company_users cu
-              WHERE 
-                cu.user_id = auth.uid() AND
-                cu.company_id::text = (storage.foldername(name))[1]
-            )
+            auth.role() = 'authenticated' AND
+            is_member_of_company(auth.uid(), (storage.foldername(name))[1]::uuid)
           `,
           role: 'authenticated',
         },
@@ -180,9 +183,9 @@ const policies = [
         name: 'Allow staff to upload meeting recordings',
         definition: {
           operation: 'INSERT',
+          // Use is_staff_user helper function
           expression: `
-            auth.role() = 'authenticated' AND 
-            (SELECT is_staff FROM user_profiles WHERE user_id = auth.uid())
+            auth.role() = 'authenticated' AND is_staff_user(auth.uid())
           `,
           role: 'authenticated',
         },
@@ -191,9 +194,9 @@ const policies = [
         name: 'Allow staff to delete meeting recordings',
         definition: {
           operation: 'DELETE',
+          // Use is_staff_user helper function
           expression: `
-            auth.role() = 'authenticated' AND 
-            (SELECT is_staff FROM user_profiles WHERE user_id = auth.uid())
+            auth.role() = 'authenticated' AND is_staff_user(auth.uid())
           `,
           role: 'authenticated',
         },
