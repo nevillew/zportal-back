@@ -269,9 +269,13 @@ serve(async (req) => {
         if (uploadError) {
           console.error(
             `Error uploading file to storage for task ${taskId}:`,
-            uploadError,
+            uploadError, // Log the original Supabase storage error object
           );
-          throw new Error(`Storage upload failed: ${uploadError.message}`);
+          // Return a more specific error response for storage failures
+          return createInternalServerErrorResponse(
+            `Storage upload failed: ${uploadError.message}`,
+            uploadError, // Pass the original error for potential logging
+          );
         }
         console.log(`Successfully uploaded file to path: ${filePath}`);
         // --- End Upload to Storage ---
@@ -428,8 +432,11 @@ serve(async (req) => {
             `Error deleting file record ${fileId} from database:`,
             deleteDbError.message,
           );
-          // Don't proceed to delete storage file if DB deletion failed
-          // TODO(db-error): Handle specific DB errors with appropriate 4xx status codes.
+          // Handle specific database errors for metadata deletion
+          if (deleteDbError.code === 'PGRST204') { // Not Found (already deleted or never existed)
+            return createNotFoundResponse('File record not found or already deleted');
+          }
+          // For other DB errors, let the main handler return 500
           throw new Error(`Database deletion failed: ${deleteDbError.message}`);
         }
         console.log(
