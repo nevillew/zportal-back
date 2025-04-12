@@ -115,10 +115,10 @@ This document outlines the remaining implementation steps and identified TODOs f
         - [x] Convert function logic into a PostgreSQL RPC function (`instantiate_template_rpc`).
         - [x] Implement transaction block (implicit via PL/pgSQL) within the RPC function.
         - [x] Update Edge Function to call the RPC function.
-- [ ] **`tasks` Function:**
-    - [ ] **Recurrence Logic:**
-        - [ ] Calculate initial `next_occurrence_date` on creation if `is_recurring_definition` is true (POST).
-        - [ ] Recalculate `next_occurrence_date` if `recurrence_rule` or `recurrence_end_date` changes (PUT).
+- [x] **`tasks` Function:**
+    - [x] **Recurrence Logic:**
+        - [x] Calculate initial `next_occurrence_date` on creation if `is_recurring_definition` is true (POST).
+        - [x] Recalculate `next_occurrence_date` if `recurrence_rule` or `recurrence_end_date` changes (PUT).
 
 ## 6. New Scheduled Functions (`pg_cron`)
 - [ ] **Data Retention Cleanup Function:**

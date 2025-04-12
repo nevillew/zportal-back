@@ -10,6 +10,7 @@ import {
   createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
+import { RRule } from 'rrule-deno'; // Import RRule library
 
 console.log('Tasks function started');
 
@@ -385,8 +386,7 @@ serve(async (req) => {
             is_recurring_definition: newTaskData.is_recurring_definition ?? false,
             recurrence_rule: newTaskData.recurrence_rule,
             recurrence_end_date: newTaskData.recurrence_end_date,
-            // TODO(recurrence): Calculate initial next_occurrence_date based on rule and start date/created_at if is_recurring_definition is true
-            next_occurrence_date: newTaskData.next_occurrence_date,
+            next_occurrence_date: initialNextOccurrenceDate, // Use calculated date
           })
           .select()
           .single();
@@ -640,9 +640,50 @@ serve(async (req) => {
           recurrence_rule: updateData.recurrence_rule,
           recurrence_end_date: updateData.recurrence_end_date,
           // TODO(recurrence): Recalculate next_occurrence_date if rule/end_date changes.
-          next_occurrence_date: updateData.next_occurrence_date,
+          next_occurrence_date: updateData.next_occurrence_date, // Keep original value unless recalculated below
           // section_id should not be changed here - that would be a "move" operation
         };
+
+        // --- Recalculate Next Occurrence Date if Rule/End Date Changes ---
+        const isRecurringDefinition = taskToCheck.is_recurring_definition || allowedUpdates.is_recurring_definition === true;
+        const ruleChanged = allowedUpdates.recurrence_rule !== undefined && allowedUpdates.recurrence_rule !== taskToCheck.recurrence_rule;
+        const endDateChanged = allowedUpdates.recurrence_end_date !== undefined && allowedUpdates.recurrence_end_date !== taskToCheck.recurrence_end_date;
+
+        if (isRecurringDefinition && (ruleChanged || endDateChanged)) {
+          const newRule = allowedUpdates.recurrence_rule ?? taskToCheck.recurrence_rule;
+          const newEndDate = allowedUpdates.recurrence_end_date ?? taskToCheck.recurrence_end_date;
+
+          if (newRule) {
+            try {
+              const now = new Date();
+              const ruleString = `DTSTART:${now.toISOString().replace(/[-:.]/g, '')}\nRRULE:${newRule}`;
+              const rule = RRule.fromString(ruleString);
+              const nextOccurrence = rule.after(now, true); // Find next occurrence after or at 'now'
+
+              if (nextOccurrence) {
+                if (newEndDate && nextOccurrence > new Date(newEndDate)) {
+                  console.log(`Next calculated occurrence (${nextOccurrence.toISOString()}) is after new recurrence end date (${newEndDate}). Setting next_occurrence_date to null.`);
+                  allowedUpdates.next_occurrence_date = null;
+                } else {
+                  allowedUpdates.next_occurrence_date = nextOccurrence.toISOString();
+                  console.log(`Recalculated next_occurrence_date: ${allowedUpdates.next_occurrence_date}`);
+                }
+              } else {
+                console.warn(`Could not calculate next occurrence for updated rule: ${newRule}. Setting next_occurrence_date to null.`);
+                allowedUpdates.next_occurrence_date = null;
+              }
+            } catch (parseError) {
+              const parseErrorMessage = parseError instanceof Error ? parseError.message : 'Unknown error parsing RRULE';
+              console.error(`Error parsing recurrence rule during task update: ${parseErrorMessage}`);
+              return createValidationErrorResponse({ recurrence_rule: [`Invalid recurrence rule: ${parseErrorMessage}`] });
+            }
+          } else {
+            // If rule is removed, clear next occurrence date
+            allowedUpdates.next_occurrence_date = null;
+          }
+        }
+        // --- End Recalculate Next Occurrence Date ---
+
         // Remove undefined fields
         Object.keys(allowedUpdates).forEach((key) => {
           if (
