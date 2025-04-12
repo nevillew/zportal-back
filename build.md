@@ -107,7 +107,7 @@ This document outlines the remaining implementation steps and identified TODOs f
 - [x] **Existing Function Notifications:**
     - [x] `issues`: Trigger notification on assignment or status change.
     - [x] `milestones`: Trigger notification upon successful milestone approval (POST /approve).
-    - [ ] `risks`: Trigger notification on assignment or status change.
+    - [x] `risks`: Trigger notification on assignment or status change.
 
 ## 5. Advanced Function Refactors
 - [ ] **`instantiate-project-template` Function:**
