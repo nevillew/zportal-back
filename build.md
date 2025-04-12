@@ -110,11 +110,11 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] `risks`: Trigger notification on assignment or status change.
 
 ## 5. Advanced Function Refactors
-- [ ] **`instantiate-project-template` Function:**
-    - [ ] **Transaction Handling:**
-        - [ ] Convert function logic into a PostgreSQL RPC function (`instantiate_template_rpc`).
-        - [ ] Implement transaction block (BEGIN/COMMIT/ROLLBACK) within the RPC function.
-        - [ ] Update Edge Function to call the RPC function.
+- [x] **`instantiate-project-template` Function:**
+    - [x] **Transaction Handling:**
+        - [x] Convert function logic into a PostgreSQL RPC function (`instantiate_template_rpc`).
+        - [x] Implement transaction block (implicit via PL/pgSQL) within the RPC function.
+        - [x] Update Edge Function to call the RPC function.
 - [ ] **`tasks` Function:**
     - [ ] **Recurrence Logic:**
         - [ ] Calculate initial `next_occurrence_date` on creation if `is_recurring_definition` is true (POST).

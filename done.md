@@ -33,6 +33,7 @@
 -   **Issue Notifications:** Created PostgreSQL trigger function `notify_issue_change` to call the `send-notification` function via `pg_net` when an issue's assignment or status changes. Applied trigger to `issues`. (Migration: `20250416060100_add_issue_notification_trigger.sql`)
 -   **Milestone Notifications:** Added logic to the `milestones` Edge Function (POST `/milestones/{id}/approve`) to call the `send-notification` function upon successful milestone approval, notifying the project owner. (`supabase/functions/milestones/index.ts`)
 -   **Risk Notifications:** Created PostgreSQL trigger function `notify_risk_change` to call the `send-notification` function via `pg_net` when a risk's assignment or status changes. Applied trigger to `risks`. (Migration: `20250416070100_add_risk_notification_trigger.sql`)
+-   **Instantiate Template Refactor:** Moved core project instantiation logic from Edge Function to a transactional PostgreSQL RPC function (`instantiate_template_rpc`). Updated Edge Function to call the RPC. (Migration: `20250416080100_add_instantiate_template_rpc.sql`, Function: `supabase/functions/instantiate-project-template/index.ts`)
 
 ## 2025-04-14
 

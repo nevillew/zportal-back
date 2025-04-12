@@ -235,8 +235,51 @@ serve(async (req) => {
   }
 
   // --- Main Instantiation Logic ---
-  // Wrap the core logic in a try-catch for graceful error handling
+  // The core logic is now moved to the instantiate_template_rpc function.
+  // This Edge Function now primarily handles validation, permission checks,
+  // and calling the RPC function. Placeholder resolution might still happen here
+  // if complex logic is needed before passing to RPC, or simplified in RPC.
+
   try {
+    // --- Call the RPC Function ---
+    console.log('Calling instantiate_template_rpc...');
+    const { data: newProjectId, error: rpcError } = await supabaseClient
+      .rpc('instantiate_template_rpc', {
+        p_template_version_id: requestData.template_version_id,
+        p_target_company_id: requestData.target_company_id,
+        p_new_project_name: requestData.new_project_name,
+        p_placeholder_values: requestData.placeholder_values || {}, // Pass placeholders
+        p_project_owner_id: requestData.project_owner_id, // Pass optional owner
+        p_requesting_user_id: user.id, // Pass requesting user for potential internal checks
+      });
+
+    if (rpcError) {
+      console.error('Error calling instantiate_template_rpc:', rpcError);
+      // Check for specific PostgreSQL error codes raised by the RPC function
+      if (rpcError.code && rpcError.message.includes('does not have permission')) {
+         return createForbiddenResponse(rpcError.message);
+      }
+      if (rpcError.code && (rpcError.message.includes('not found') || rpcError.code === 'PGRST116')) {
+         return createNotFoundResponse(rpcError.message);
+      }
+      // Default to internal server error for other RPC errors
+      throw new Error(`RPC Error: ${rpcError.message}`); // Throw to be caught by main catch
+    }
+
+    if (!newProjectId) {
+      throw new Error('RPC function did not return a new project ID.');
+    }
+
+    console.log(
+      `Successfully instantiated template via RPC. New project ID: ${newProjectId}`,
+    );
+
+    return new Response(JSON.stringify({ project_id: newProjectId }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 201, // Created
+    });
+
+    /* --- OLD LOGIC (Moved to RPC) ---
     // --- Fetch Data for Placeholder Resolution ---
     console.log('Fetching template version details...');
     // 1. Fetch Template Version Details (including defined placeholders)
@@ -519,9 +562,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 201, // Created
     });
+    --- END OLD LOGIC --- */
 
   } catch (error) {
-    // Catch any error thrown during the process
+    // Catch any error thrown during the process (including RPC call errors)
     const instantiationErrorMessage = error instanceof Error
       ? error.message
       : 'Unknown internal server error during instantiation';
