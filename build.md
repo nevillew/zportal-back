@@ -82,8 +82,8 @@ This document outlines the remaining implementation steps and identified TODOs f
 - [x] **Document Management API:** (If needed beyond PostgREST)
     - [x] Create Edge Function for CRUD operations on `documents`.
     - [x] _Note: Versioning/Approval logic requires schema definition first._
-- [ ] **Page Management API:** (If needed beyond PostgREST)
-    - [ ] Create Edge Function for CRUD operations on `pages`.
+- [x] **Page Management API:** (If needed beyond PostgREST)
+    - [x] Create Edge Function for CRUD operations on `pages`.
 - [ ] **Feedback Submission API:**
     - [ ] Create Edge Function endpoint to receive and store user feedback (requires `feedback` table schema).
 - [ ] **Welcome Sequence Trigger/Function:**
