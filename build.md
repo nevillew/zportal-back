@@ -47,11 +47,11 @@ This document outlines the remaining implementation steps and identified TODOs f
 - [x] **SSO JIT Provisioning Handler:** (Requires Supabase Auth Hook setup)
     - [x] Create Edge Function triggered by Auth Hook.
     - [x] Implement logic to receive claims, lookup `sso_configurations`, parse attributes, create/update `user_profiles`/`company_users`, handle role mapping.
-- [ ] **Global Search RPC:** (Requires FTS setup)
-    - [ ] Create RPC function `global_search(query text, filters jsonb, page int, page_size int)`.
-    - [ ] Implement query against `search_index` table.
-    - [ ] Implement RLS checks on results.
-    - [ ] Implement pagination and return formatted results.
+- [x] **Global Search RPC:** (Requires FTS setup)
+    - [x] Create RPC function `global_search(p_user_id uuid, p_query text, p_filters jsonb, p_page int, p_page_size int)`.
+    - [x] Implement query against `search_index` table using FTS (`websearch_to_tsquery`, `ts_rank_cd`).
+    - [x] Implement RLS checks on results using `is_staff_user` and `is_member_of_company` helpers.
+    - [x] Implement pagination and return formatted results including `total_count`.
 - [ ] **Reporting View RPCs:** (Requires Views to be defined/stable)
     - [ ] Create RPC function for `view_project_summary` (accept filters, query view, apply RLS, return data).
     - [ ] Create RPC function for `view_task_details` (accept filters, query view, apply RLS, return data).

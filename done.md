@@ -10,6 +10,7 @@
 -   **Notification Sender Function:** Created new Edge Function (`send-notification`) to handle sending notifications via Email (Resend) and Slack. Includes input validation, secret fetching (placeholder for Vault), API call logic using `fetch`, and basic internal authentication check. (`supabase/functions/send-notification/index.ts`)
 -   **Accept Invite Function:** Created new Edge Function (`accept-invite`) to handle user invitation acceptance. Validates token, status, expiry, and user email. Creates `company_users` record and updates invitation status. (`supabase/functions/accept-invite/index.ts`)
 -   **SSO JIT Provisioning Handler:** Created new Edge Function (`sso-jit-provisioning`) triggered by Supabase Auth Hook. Parses claims, finds company SSO config via domain, maps attributes (name, role) based on config, upserts user profile and company user association, returns custom claims for JWT. (`supabase/functions/sso-jit-provisioning/index.ts`)
+-   **Global Search RPC:** Created PostgreSQL function `global_search(p_user_id, p_query, p_filters, p_page, p_page_size)` to query the `search_index` table using FTS, apply filters, enforce RLS based on the calling user, and return paginated results with relevance ranking. (Migration: `20250415110000_add_global_search_rpc.sql`)
 
 ## 2025-04-14
 
