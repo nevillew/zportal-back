@@ -532,9 +532,32 @@ serve(async (req) => {
         if (updateData.depends_on_task_id && updateData.depends_on_task_id === taskId) {
              return createValidationErrorResponse({ depends_on_task_id: ['A task cannot depend on itself.'] });
         }
-        // TODO(dependency): Add check for circular dependencies (e.g., A->B, B->A) if required. This might need a recursive CTE in SQL.
-        // --- End Dependency Validation ---
+       // --- End Dependency Validation ---
 
+       // --- Circular Dependency Check ---
+       if (updateData.depends_on_task_id !== undefined && updateData.depends_on_task_id !== taskToCheck.depends_on_task_id) {
+         console.log(`Checking for circular dependency: Task ${taskId} -> ${updateData.depends_on_task_id}`);
+         const { data: isCircular, error: circularCheckError } = await supabaseClient.rpc(
+           'check_task_circular_dependency',
+           {
+             task_id_to_check: taskId,
+             proposed_dependency_id: updateData.depends_on_task_id,
+           },
+         );
+
+         if (circularCheckError) {
+           console.error('Error checking for circular dependency:', circularCheckError.message);
+           // Don't block update if check fails, but log it. Consider making this fatal.
+           // throw new Error(`Failed to check circular dependency: ${circularCheckError.message}`);
+         }
+
+         if (isCircular === true) {
+           console.warn(`Circular dependency detected for task ${taskId} with dependency ${updateData.depends_on_task_id}`);
+           return createBadRequestResponse('Setting this dependency would create a circular loop.');
+         }
+         console.log('No circular dependency detected.');
+       }
+       // --- End Circular Dependency Check ---
 
         // --- Dependency Enforcement ---
         if (updateData.status === 'Complete') {

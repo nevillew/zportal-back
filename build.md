@@ -19,8 +19,8 @@ This document outlines the remaining implementation steps and identified TODOs f
 - [x] **`task-files` Function:**
     - [x] Handle specific DB errors (constraint violations) (POST, DELETE).
     - [x] Handle Storage API errors gracefully.
-- [ ] **`tasks` Function:**
-    - [ ] **Dependency Logic:** Add check for circular dependencies if required (PUT).
+- [x] **`tasks` Function:**
+    - [x] **Dependency Logic:** Add check for circular dependencies if required (PUT).
     - [ ] Implement conditional task logic evaluation (if backend check needed beyond frontend rendering).
     - [ ] Add permission check refinement for self-service updates (`is_self_service` flag).
 - [ ] **`instantiate-project-template` Function:**
