@@ -21,7 +21,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [x] Handle Storage API errors gracefully.
 - [x] **`tasks` Function:**
     - [x] **Dependency Logic:** Add check for circular dependencies if required (PUT).
-    - [ ] Implement conditional task logic evaluation (if backend check needed beyond frontend rendering).
+    - [x] Implement conditional task logic evaluation (if backend check needed beyond frontend rendering). (Basic check on PUT for 'Complete' status based on `condition.required_dependency_status`).
     - [ ] Add permission check refinement for self-service updates (`is_self_service` flag).
 - [ ] **`instantiate-project-template` Function:**
     - [ ] Handle errors during placeholder resolution or DB operations gracefully (initial step before full transaction refactor).

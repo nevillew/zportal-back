@@ -453,11 +453,11 @@ serve(async (req) => {
           `Attempting to update task ${taskId}, requested by user ${user.id}`,
         );
 
-        // Fetch task's section and project for permission check
+        // Fetch task's section, project, and condition for permission/logic checks
         const { data: taskToCheck, error: checkError } = await supabaseClient
           .from('tasks')
           .select(
-            'id, depends_on_task_id, section_id, sections ( project_id, projects ( company_id ) )', // Include current depends_on_task_id
+            'id, condition, depends_on_task_id, section_id, sections ( project_id, projects ( company_id ) )', // Include condition and depends_on_task_id
           )
           .eq('id', taskId)
           .single();
@@ -559,10 +559,12 @@ serve(async (req) => {
        }
        // --- End Circular Dependency Check ---
 
-        // --- Dependency Enforcement ---
+        // --- Condition & Dependency Enforcement ---
         if (updateData.status === 'Complete') {
-            const currentDependencyId = taskToCheck.depends_on_task_id;
-            if (currentDependencyId) {
+            // 1. Check explicit dependency field first
+            const explicitDependencyId = taskToCheck.depends_on_task_id;
+            if (explicitDependencyId) {
+                 console.log(`Checking explicit dependency ${explicitDependencyId} for task ${taskId} completion.`);
                  const { data: dependencyTask, error: depError } = await supabaseClient
                     .from('tasks')
                     .select('status')
@@ -574,11 +576,45 @@ serve(async (req) => {
                      // Don't block completion if dependency fetch fails, but log it.
                  } else if (dependencyTask?.status !== 'Complete') {
                       console.warn(`Attempted to complete task ${taskId} but its dependency ${currentDependencyId} is not complete.`);
-                      return createValidationErrorResponse({ status: [`Cannot complete task: Dependency task is not yet complete.`] });
+                      return createBadRequestResponse(`Cannot complete task: Explicit dependency task is not yet complete.`);
                  }
+                 console.log(`Explicit dependency ${explicitDependencyId} is complete.`);
+            }
+
+            // 2. Check condition field (if present)
+            if (taskToCheck.condition && typeof taskToCheck.condition === 'object') {
+                console.log(`Checking condition field for task ${taskId} completion:`, taskToCheck.condition);
+                // Example: Simple dependency status check from condition
+                // Assumes structure: { "required_dependency_status": { "task_id": "uuid", "status": "Complete" } }
+                const conditionDep = (taskToCheck.condition as any)?.required_dependency_status;
+                if (conditionDep?.task_id && conditionDep?.status) {
+                    const conditionDepId = conditionDep.task_id;
+                    const requiredStatus = conditionDep.status;
+                    console.log(`Condition requires task ${conditionDepId} to have status ${requiredStatus}.`);
+
+                    const { data: conditionDepTask, error: condDepError } = await supabaseClient
+                        .from('tasks')
+                        .select('status')
+                        .eq('id', conditionDepId)
+                        .single();
+
+                    if (condDepError) {
+                        console.error(`Error fetching conditional dependency task ${conditionDepId} for task ${taskId}:`, condDepError.message);
+                        // Potentially block completion if conditional dependency check fails
+                        return createInternalServerErrorResponse(`Error checking task condition dependency: ${condDepError.message}`);
+                    } else if (conditionDepTask?.status !== requiredStatus) {
+                        console.warn(`Attempted to complete task ${taskId} but its conditional dependency ${conditionDepId} has status ${conditionDepTask?.status} (required: ${requiredStatus}).`);
+                        return createBadRequestResponse(`Cannot complete task: Condition not met (dependency task status is '${conditionDepTask?.status ?? 'unknown'}').`);
+                    }
+                    console.log(`Conditional dependency ${conditionDepId} status check passed.`);
+                } else {
+                    console.warn(`Task ${taskId} has an unrecognised condition structure:`, taskToCheck.condition);
+                    // Decide how to handle unknown conditions: block or allow? Blocking is safer.
+                    // return createBadRequestResponse('Cannot complete task: Unknown condition structure.');
+                }
             }
         }
-        // --- End Dependency Enforcement ---
+        // --- End Condition & Dependency Enforcement ---
 
 
         // Prepare allowed update fields

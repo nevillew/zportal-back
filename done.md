@@ -1,5 +1,6 @@
 ## 2025-04-15
 
+-   **Tasks Function:** Implemented basic conditional task logic evaluation in the PUT handler. Before allowing a status update to 'Complete', it checks if the task's `condition` field specifies a `required_dependency_status` and verifies that the dependency task has the required status. (`supabase/functions/tasks/index.ts`)
 -   **Tasks Function:** Added circular dependency check using a new PostgreSQL helper function (`check_task_circular_dependency`) called via RPC during task updates (PUT). Prevents setting a `depends_on_task_id` that would create a loop. (Migration: `20250415100000_add_circular_dependency_check.sql`, Function: `supabase/functions/tasks/index.ts`)
 -   **Task Files Function:** Implemented specific error handling for database constraints (FK violation, NOT NULL) and Storage API errors during file upload (POST) and deletion (DELETE). (`supabase/functions/task-files/index.ts`)
 -   **Task Comments Function:** Added permission check to allow staff users to delete any task comment, in addition to the original author. (`supabase/functions/task-comments/index.ts`)
