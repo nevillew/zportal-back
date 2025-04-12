@@ -1,5 +1,9 @@
 ## 2025-04-14
 
+-   **Risks Function:** Enhanced `supabase/functions/risks/index.ts`:
+    -   Added validation for `status`, `probability`, and `impact` fields against allowed enum values in POST/PUT requests.
+    -   Implemented specific error handling for database constraints (foreign key, check, not null) and missing records (PGRST204) during POST, PUT, and DELETE operations, returning appropriate 4xx HTTP status codes.
+    -   Verified existing permission checks using `has_permission` and staff status.
 -   **Seed Data:** Create `supabase/seed.sql` file and populate it with default system roles ('Staff Admin', 'Project Manager', 'Implementation Specialist', 'Company Admin', 'Client Viewer') and their corresponding `base_permissions` JSONB definitions based on `plan.md`. Marked roles as `is_system_role = true`.
 
 ## 2025-04-13

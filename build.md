@@ -10,10 +10,10 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [ ] _Note: Seeding default `project_templates` requires defining template content first._
 
 ## 2. Existing Function Enhancements (Core Logic & Permissions)
-- [ ] **`risks` Function:**
-    - [ ] Implement permission checks using `has_permission` (POST, PUT, DELETE).
-    - [ ] Validate status, probability, impact enums against allowed values (POST, PUT).
-    - [ ] Handle specific DB errors (FK violations, restricted delete, check constraints, not null) (POST, PUT, DELETE).
+- [x] **`risks` Function:**
+    - [x] Implement permission checks using `has_permission` (POST, PUT, DELETE). (Verified existing checks)
+    - [x] Validate status, probability, impact enums against allowed values (POST, PUT).
+    - [x] Handle specific DB errors (FK violations, restricted delete, check constraints, not null) (POST, PUT, DELETE).
 - [ ] **`task-comments` Function:**
     - [ ] Add permission check for staff/admin DELETE override.
 - [ ] **`task-files` Function:**

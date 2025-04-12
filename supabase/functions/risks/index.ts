@@ -9,9 +9,15 @@ import {
   createNotFoundResponse,
   createUnauthorizedResponse,
   createValidationErrorResponse,
+  ValidationErrors, // Import ValidationErrors type
 } from '../_shared/validation.ts'; // Import helpers
 
 console.log('Risks function started');
+
+// Define allowed enum values based on schema
+const validStatuses = ['Potential', 'Open', 'Mitigated', 'Closed'];
+const validProbabilities = ['Low', 'Medium', 'High'];
+const validImpacts = ['Low', 'Medium', 'High'];
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -164,20 +170,32 @@ serve(async (req) => {
 
         // Parse request body
         // deno-lint-ignore no-explicit-any
+        // deno-lint-ignore no-explicit-any
         let newRiskData: any;
+        const errors: ValidationErrors = {}; // Use ValidationErrors type
         try {
           newRiskData = await req.json();
-          const errors: { [field: string]: string[] } = {};
+
+          // --- Validation ---
           if (!newRiskData.description) {
             errors.description = ['Description is required'];
           }
           if (!newRiskData.project_id) {
             errors.project_id = ['Project ID is required'];
           }
-          // TODO(validation): Validate status, probability, impact enums if provided against allowed values.
+          if (newRiskData.status !== undefined && !validStatuses.includes(newRiskData.status)) {
+            errors.status = [`Status must be one of: ${validStatuses.join(', ')}`];
+          }
+          if (newRiskData.probability !== undefined && !validProbabilities.includes(newRiskData.probability)) {
+            errors.probability = [`Probability must be one of: ${validProbabilities.join(', ')}`];
+          }
+          if (newRiskData.impact !== undefined && !validImpacts.includes(newRiskData.impact)) {
+            errors.impact = [`Impact must be one of: ${validImpacts.join(', ')}`];
+          }
+          // --- End Validation ---
 
           if (Object.keys(errors).length > 0) {
-            return createValidationErrorResponse(errors);
+            return createValidationErrorResponse(errors); // Return 422 Validation Error
           }
         } catch (e) {
           const errorMessage = e instanceof Error
@@ -243,7 +261,28 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error creating risk:', insertError.message);
-          // TODO(db-error): Handle specific DB errors (e.g., FK violation on project_id) with appropriate 4xx status codes.
+          // Handle specific database errors
+          if (insertError.code === '23503') { // Foreign key violation
+            const constraint = insertError.message.includes('project_id')
+              ? 'project_id'
+              : insertError.message.includes('reported_by_user_id')
+                ? 'reported_by_user_id'
+                : insertError.message.includes('assigned_to_user_id')
+                  ? 'assigned_to_user_id'
+                  : 'unknown foreign key';
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
+            );
+          } else if (insertError.code === '23514') { // Check constraint violation
+            return createBadRequestResponse(
+              `Invalid field value: ${insertError.message}. Check status, probability, or impact.`,
+            );
+          } else if (insertError.code === '23502') { // Not null violation
+            const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
+            const column = columnMatch ? columnMatch[1] : 'unknown';
+            return createBadRequestResponse(`The ${column} field is required.`);
+          }
+          // For other errors, let the main handler deal with it
           throw insertError;
         }
 
@@ -311,12 +350,28 @@ serve(async (req) => {
         // Parse request body
         // deno-lint-ignore no-explicit-any
         let updateData: any;
+        const errors: ValidationErrors = {}; // Use ValidationErrors type
         try {
           updateData = await req.json();
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
-          // TODO(validation): Validate status, probability, impact enums if provided against allowed values.
+
+          // --- Validation ---
+          if (updateData.status !== undefined && !validStatuses.includes(updateData.status)) {
+            errors.status = [`Status must be one of: ${validStatuses.join(', ')}`];
+          }
+          if (updateData.probability !== undefined && !validProbabilities.includes(updateData.probability)) {
+            errors.probability = [`Probability must be one of: ${validProbabilities.join(', ')}`];
+          }
+          if (updateData.impact !== undefined && !validImpacts.includes(updateData.impact)) {
+            errors.impact = [`Impact must be one of: ${validImpacts.join(', ')}`];
+          }
+          // --- End Validation ---
+
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors); // Return 422 Validation Error
+          }
         } catch (e) {
           const errorMessage = e instanceof Error
             ? e.message
@@ -356,8 +411,23 @@ serve(async (req) => {
           console.error(`Error updating risk ${riskId}:`, updateError.message);
           if (updateError.code === 'PGRST204') { // No rows updated/selected
             return createNotFoundResponse('Risk not found or update failed');
+          } else if (updateError.code === '23503') { // Foreign key violation
+            const constraint = updateError.message.includes('assigned_to_user_id')
+              ? 'assigned_to_user_id'
+              : 'unknown foreign key';
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
+            );
+          } else if (updateError.code === '23514') { // Check constraint violation
+            return createBadRequestResponse(
+              `Invalid field value: ${updateError.message}. Check status, probability, or impact.`,
+            );
+          } else if (updateError.code === '23502') { // Not null violation
+            const columnMatch = updateError.message.match(/null value in column "(.+?)"/);
+            const column = columnMatch ? columnMatch[1] : 'unknown';
+            return createBadRequestResponse(`The ${column} field is required.`);
           }
-          // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
+          // For other errors, let the main handler deal with it
           throw updateError;
         }
 
@@ -428,7 +498,15 @@ serve(async (req) => {
 
         if (deleteError) {
           console.error(`Error deleting risk ${riskId}:`, deleteError.message);
-          // TODO(db-error): Handle specific DB errors (e.g., restricted delete due to FK dependency) with appropriate 4xx status codes.
+          // Handle specific database errors
+          if (deleteError.code === 'PGRST204') { // No rows deleted
+            return createNotFoundResponse('Risk not found or already deleted');
+          } else if (deleteError.code === '23503') { // Foreign key violation (e.g., if issues reference this risk)
+            return createConflictResponse(
+              'Cannot delete this risk because it is referenced by other records (like issues).',
+            );
+          }
+          // For other errors, let the main handler deal with it
           throw deleteError;
         }
 
