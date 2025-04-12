@@ -32,7 +32,7 @@ This document outlines the remaining implementation steps and identified TODOs f
     - [ ] Add Sentry SDK initialization and error capturing to all Edge Functions (Requires Sentry DSN setup externally).
     - [x] Refactor `companies` function to return standardized error responses.
     - [x] Refactor `projects` function to return standardized error responses.
-    - [ ] Refactor `milestones` function to return standardized error responses.
+    - [x] Refactor `milestones` function to return standardized error responses.
     - [ ] Refactor `risks` function to return standardized error responses.
     - [ ] Refactor `issues` function to return standardized error responses.
     - [ ] Refactor `sections` function to return standardized error responses.

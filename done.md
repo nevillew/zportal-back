@@ -11,3 +11,4 @@
 -   **Logging:** Implement logging to `background_job_failures` table within the `generate-recurring-tasks` Edge Function.
 -   **Error Handling:** Refactor `companies` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, etc.) from `_shared/validation.ts`. Added new helper functions to `validation.ts`.
 -   **Error Handling:** Refactor `projects` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, `createUnauthorizedResponse`, etc.) from `_shared/validation.ts`.
+-   **Error Handling:** Refactor `milestones` Edge Function to use standardized error response helpers (`createNotFoundResponse`, `createForbiddenResponse`, `createUnauthorizedResponse`, `createConflictResponse`, etc.) from `_shared/validation.ts`.

@@ -4,6 +4,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
+  createConflictResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts'; // Import helpers
 
@@ -31,11 +37,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth
       .getUser();
     if (userError || !user) {
-      console.error('User not authenticated:', userError?.message);
-      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createUnauthorizedResponse(userError?.message);
     }
 
     console.log(`Handling ${req.method} request for user ${user.id}`);
@@ -81,13 +83,7 @@ serve(async (req) => {
             console.log(
               `Milestone ${milestoneId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Milestone not found or access denied' }),
-              {
-                status: 404, // Not Found or Forbidden
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Milestone not found or access denied');
           }
 
           // Format response similar to the list endpoint
@@ -121,13 +117,7 @@ serve(async (req) => {
             console.log(
               `Project ${projectId} not found or access denied for user ${user.id}`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Project not found or access denied' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Project not found or access denied');
           }
 
           // Fetch milestones for the specified project
@@ -196,14 +186,8 @@ serve(async (req) => {
               `Error fetching milestone ${milestoneId} for approval check:`,
               checkError?.message,
             );
-            return new Response(
-              JSON.stringify({
-                error: 'Milestone or associated project/company not found',
-              }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createNotFoundResponse(
+              'Milestone or associated project/company not found',
             );
           }
 
@@ -237,13 +221,7 @@ serve(async (req) => {
             console.error(
               `User ${user.id} not authorized to approve milestone ${milestoneId} in project ${milestoneToCheck.project_id}.`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Forbidden: Not authorized to approve this milestone' }),
-              {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createForbiddenResponse('Not authorized to approve this milestone');
           }
           // --- End Permission Check ---
 
@@ -353,13 +331,7 @@ serve(async (req) => {
             console.error(
               `User ${user.id} not authorized to create milestones for project ${targetProjectId}.`,
             );
-            return new Response(
-              JSON.stringify({ error: 'Forbidden: Not authorized to create milestones for this project' }),
-              {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createForbiddenResponse('Not authorized to create milestones for this project');
           }
 
           // Insert new milestone
@@ -390,51 +362,24 @@ serve(async (req) => {
                 : insertError.message.includes('approval_id')
                   ? 'approval_id'
                   : 'unknown foreign key';
-              
-              return new Response(
-                JSON.stringify({ 
-                  error: `Invalid reference: ${constraint} refers to a record that doesn't exist` 
-                }),
-                {
-                  status: 400, // Bad Request
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
+              return createBadRequestResponse(
+                `Invalid reference: ${constraint} refers to a record that doesn't exist`,
               );
             } else if (insertError.code === '23505') { // Unique constraint violation
-              return new Response(
-                JSON.stringify({
-                  error: 'A milestone with this name already exists in this project'
-                }),
-                {
-                  status: 409, // Conflict
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
+              return createConflictResponse(
+                'A milestone with this name already exists in this project',
               );
             } else if (insertError.code === '23514') { // Check constraint violation
-              return new Response(
-                JSON.stringify({
-                  error: `Invalid field value: ${insertError.message}`
-                }),
-                {
-                  status: 400, // Bad Request
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
+              return createBadRequestResponse(
+                `Invalid field value: ${insertError.message}`,
               );
             } else if (insertError.code === '23502') { // Not null violation
               const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
               const column = columnMatch ? columnMatch[1] : 'unknown';
-              
-              return new Response(
-                JSON.stringify({
-                  error: `The ${column} field is required.`
-                }),
-                {
-                  status: 400, // Bad Request
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                },
+              return createBadRequestResponse(
+                `The ${column} field is required.`,
               );
             }
-            
             throw insertError;
           }
 
@@ -447,13 +392,7 @@ serve(async (req) => {
           });
         } else {
           // Invalid POST path (e.g., /milestones/{id} without /approve)
-          return new Response(
-            JSON.stringify({ error: 'Method Not Allowed for this path' }),
-            {
-              status: 405,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createMethodNotAllowedResponse('Method Not Allowed for this path');
         }
       }
       case 'PUT': {
@@ -482,14 +421,8 @@ serve(async (req) => {
             `Error fetching milestone ${milestoneId} for permission check or milestone/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Milestone or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Milestone or associated project/company not found',
           );
         }
 
@@ -515,13 +448,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to update milestone ${milestoneId} in project ${milestoneToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized to update this milestone' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse('Not authorized to update this milestone');
         }
 
         // Parse request body
@@ -611,14 +538,8 @@ serve(async (req) => {
               .eq('id', milestoneId)
               .single();
           if (fetchError || !currentMilestoneData) {
-            return new Response(
-              JSON.stringify({
-                error: 'Milestone not found after no-op update check',
-              }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createNotFoundResponse(
+              'Milestone not found after no-op update check',
             );
           }
           return new Response(JSON.stringify(currentMilestoneData), {
@@ -641,54 +562,27 @@ serve(async (req) => {
             `Error updating milestone ${milestoneId}:`,
             updateError.message,
           );
-          
           // Handle specific errors
           if (updateError.code === 'PGRST204') { // No rows updated/selected
-            return new Response(
-              JSON.stringify({ error: 'Milestone not found or update failed' }),
-              {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Milestone not found or update failed');
           } else if (updateError.code === '23503') { // Foreign key violation
             const constraint = updateError.message.includes('approval_id')
               ? 'approval_id'
               : updateError.message.includes('signed_off_by_user_id')
                 ? 'signed_off_by_user_id'
                 : 'unknown foreign key';
-            
-            return new Response(
-              JSON.stringify({ 
-                error: `Invalid reference: ${constraint} refers to a record that doesn't exist` 
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
           } else if (updateError.code === '23505') { // Unique constraint violation
-            return new Response(
-              JSON.stringify({
-                error: 'A milestone with this name already exists in this project'
-              }),
-              {
-                status: 409, // Conflict
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createConflictResponse(
+              'A milestone with this name already exists in this project',
             );
           } else if (updateError.code === '23514') { // Check constraint violation
-            return new Response(
-              JSON.stringify({
-                error: `Invalid field value: ${updateError.message}`
-              }),
-              {
-                status: 400, // Bad Request
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createBadRequestResponse(
+              `Invalid field value: ${updateError.message}`,
             );
           }
-          
           throw updateError;
         }
 
@@ -724,14 +618,8 @@ serve(async (req) => {
             `Error fetching milestone ${milestoneId} for permission check or milestone/project/company not found:`,
             checkError?.message,
           );
-          return new Response(
-            JSON.stringify({
-              error: 'Milestone or associated project/company not found',
-            }),
-            {
-              status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
+          return createNotFoundResponse(
+            'Milestone or associated project/company not found',
           );
         }
 
@@ -757,13 +645,7 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to delete milestone ${milestoneId} in project ${milestoneToCheck.project_id}.`,
           );
-          return new Response(
-            JSON.stringify({ error: 'Forbidden: Not authorized to delete this milestone' }),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return createForbiddenResponse('Not authorized to delete this milestone');
         }
 
         // Delete the milestone
@@ -777,28 +659,14 @@ serve(async (req) => {
             `Error deleting milestone ${milestoneId}:`,
             deleteError.message,
           );
-          
           // Handle specific database errors
           if (deleteError.code === 'PGRST204') { // No rows deleted
-            return new Response(
-              JSON.stringify({ error: 'Milestone not found or already deleted' }),
-              {
-                status: 404, 
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
-            );
+            return createNotFoundResponse('Milestone not found or already deleted');
           } else if (deleteError.code === '23503') { // Foreign key violation
-            return new Response(
-              JSON.stringify({ 
-                error: 'Cannot delete this milestone because it is referenced by other records (like tasks). Remove all associated records first.' 
-              }),
-              {
-                status: 409, // Conflict
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              },
+            return createConflictResponse(
+              'Cannot delete this milestone because it is referenced by other records (like tasks). Remove all associated records first.',
             );
           }
-          
           throw deleteError;
         }
 
@@ -810,20 +678,10 @@ serve(async (req) => {
       }
       default:
         console.warn(`Method ${req.method} not allowed for /milestones`);
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return createMethodNotAllowedResponse();
     }
   } catch (error) {
-    const errorMessage = error instanceof Error
-      ? error.message
-      : 'Unknown internal server error';
-    console.error('Internal Server Error:', errorMessage);
-    // Use generic 500 for now, specific handlers should throw specific errors
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    // Use the standardized internal server error response
+    return createInternalServerErrorResponse(undefined, error);
   }
 });
