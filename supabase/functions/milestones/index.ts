@@ -42,7 +42,7 @@ async function getSecret(
 async function logFailure(
   client: SupabaseClient,
   jobName: string,
-  payload: any | null,
+  payload: Record<string, unknown> | null, // Use Record<string, unknown> instead of any
   error: Error,
 ) {
   console.error(`Logging failure for job ${jobName}:`, error.message);
