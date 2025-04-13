@@ -19,6 +19,18 @@ const validStatuses = ['Potential', 'Open', 'Mitigated', 'Closed'];
 const validProbabilities = ['Low', 'Medium', 'High'];
 const validImpacts = ['Low', 'Medium', 'High'];
 
+// Define the expected structure for risk data in requests
+interface RiskPayload {
+  description: string;
+  project_id: string; // Required for POST, not updatable via PUT
+  status?: 'Potential' | 'Open' | 'Mitigated' | 'Closed';
+  probability?: 'Low' | 'Medium' | 'High';
+  impact?: 'Low' | 'Medium' | 'High';
+  assigned_to_user_id?: string | null; // Allow null for unassigning
+  mitigation_plan?: string;
+  contingency_plan?: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -169,10 +181,11 @@ serve(async (req) => {
         );
 
         // Parse request body
-        let newRiskData: any;
+        let newRiskData: RiskPayload;
         const errors: ValidationErrors = {}; // Use ValidationErrors type
         try {
-          newRiskData = await req.json();
+          // Explicitly cast the parsed JSON to the expected type
+          newRiskData = await req.json() as RiskPayload;
 
           // --- Validation ---
           if (!newRiskData.description) {
@@ -362,11 +375,11 @@ serve(async (req) => {
         }
 
         // Parse request body
-        // deno-lint-ignore no-explicit-any
-        let updateData: any;
+        let updateData: Partial<RiskPayload>; // Use Partial as not all fields are required for update
         const errors: ValidationErrors = {}; // Use ValidationErrors type
         try {
-          updateData = await req.json();
+          // Explicitly cast the parsed JSON to the expected type
+          updateData = await req.json() as Partial<RiskPayload>;
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
