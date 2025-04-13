@@ -169,7 +169,6 @@ serve(async (req) => {
         );
 
         // Parse request body
-        // deno-lint-ignore no-explicit-any
         let newRiskData: any;
         const errors: ValidationErrors = {}; // Use ValidationErrors type
         try {
