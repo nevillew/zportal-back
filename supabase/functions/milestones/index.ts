@@ -435,7 +435,6 @@ serve(async (req) => {
           );
 
           // Parse request body
-          // deno-lint-ignore no-explicit-any
           let newMilestoneData: any;
           try {
             newMilestoneData = await req.json();
