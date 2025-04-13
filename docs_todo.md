@@ -140,3 +140,10 @@ This list outlines the essential documentation artifacts to create after complet
     *   [ ] Briefly explain backend code organization (migrations, functions, shared code).
 *   **Contribution Guidelines:**
     *   [ ] Define branching strategy, PR process, coding conventions, testing requirements (if applicable).
+
+**XIII. Glossary:**
+
+*   **Key Terms:**
+    *   [ ] Define domain-specific terms relevant to the ZPortal application (e.g., Onboarding Project, Self-Service Task, Milestone Sign-off, Company Admin vs Staff Admin).
+
+This list provides a comprehensive set of documentation artifacts that will greatly benefit anyone interacting with or maintaining the backend system. Remember to keep the documentation updated as the system evolves.
