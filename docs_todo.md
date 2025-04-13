@@ -29,6 +29,8 @@ This list outlines the essential documentation artifacts to create after complet
     *   [ ] Explain the RLS strategy (default deny, policies based on user roles/permissions).
     *   [ ] Document the key RLS helper functions (e.g., `is_staff_user`, `is_member_of_company`, `has_permission`, `can_access_project`, `can_manage_document`, `can_manage_entity_for_custom_field`) and their purpose.
     *   [ ] Provide examples of typical RLS policies applied to major tables (e.g., `projects`, `tasks`, `custom_field_values`).
+*   **Data Model Rationale:**
+    *   [ ] Briefly document the reasoning behind key data modeling decisions (e.g., relationships, denormalization choices in views).
 *   **Custom Database Functions & Triggers:**
     *   [ ] List significant custom PostgreSQL functions (beyond basic `updated_at`) and triggers.
     *   [ ] For each: Document purpose, trigger event (if applicable), brief logic description, and dependencies (e.g., `update_section_progress`, `clone_project`, `log_audit_changes`, `update_search_index`, `process_mentions_and_notify`, `approve_milestone_step`, `calculate_project_health`, `notify_overdue_tasks`, `apply_data_retention_policies`).
@@ -59,7 +61,18 @@ This list outlines the essential documentation artifacts to create after complet
     *   [ ] Provide the **definitive list of all Permission Keys** (e.g., from `permissions.ts` or equivalent) and a brief description of the action each key controls.
     *   [ ] Explain how `base_permissions` and `custom_permissions` combine.
 
-**V. Real-time Features:**
+**V. Security Considerations:**
+
+*   **Overall Strategy:**
+    *   [ ] Summarize the security approach (AuthN, AuthZ via RLS/Permissions, Input Validation, Secret Management).
+*   **Input Validation:**
+    *   [ ] Document where primary input validation occurs (Edge Functions, DB Constraints).
+*   **Secret Management:**
+    *   [ ] Reiterate use of Supabase Vault for sensitive keys.
+*   **Common Vulnerabilities:**
+    *   [ ] Briefly mention how Supabase helps mitigate common issues (e.g., SQLi).
+
+**VI. Real-time Features:**
 
 *   **List of Realtime Enabled Tables:**
     *   [ ] Explicitly list tables where Supabase Realtime is enabled (`task_comments`, `document_comments`, `tasks`, `announcements`, `messages`).
@@ -104,8 +117,21 @@ This list outlines the essential documentation artifacts to create after complet
     *   [ ] Provide basic guidance on monitoring (Supabase logs, Sentry, `background_job_failures`).
 *   **Backup & Restore:**
     *   [ ] Briefly mention Supabase PITR and any custom strategies.
+*   **Performance Tuning Guide:**
+    *   [ ] Document tools used for performance analysis (e.g., `EXPLAIN ANALYZE`).
+    *   [ ] Outline common indexing strategies applied.
+    *   [ ] Note any specific optimizations made to complex queries/views.
 
-**XI. Code & Contribution (within README.md or separate files):**
+**XI. Backend Testing Strategy:**
+
+*   **Unit Tests:**
+    *   [ ] Describe approach for testing helper functions or utilities (if any).
+*   **Integration Tests:**
+    *   [ ] Describe approach for testing Edge Functions and RPCs (e.g., using Supabase local testing tools, mocking).
+*   **End-to-End (E2E) Tests:**
+    *   [ ] Note backend considerations for E2E tests run by the frontend team.
+
+**XII. Code & Contribution (within README.md or separate files):**
 
 *   **README.md:**
     *   [ ] Ensure setup instructions are complete and accurate.
