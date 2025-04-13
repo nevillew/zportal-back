@@ -69,16 +69,10 @@ This document outlines the remaining backend implementation tasks based on `full
 
 ### 3.12 Logic for Templates
 
--   **Implement UI for template selection:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 -   **Implement Placeholder Resolution logic (Advanced):**
     -   _Status:_ Partially Implemented (Basic SQL version). Requires enhancement for complex sources.
     -   _Solution:_ Enhance the `instantiate_template_rpc` function or the calling Edge Function (`instantiate-project-template`) to fetch necessary context (e.g., company custom fields) and perform placeholder substitution based on the `defined_placeholders` source information before creating entities.
     -   _Action Points:_ Modify `supabase/migrations/20250416080100_add_instantiate_template_rpc.sql` OR `supabase/functions/instantiate-project-template/index.ts`.
--   **Implement Admin UI for version management:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 
 ## 4. Documentation
 
