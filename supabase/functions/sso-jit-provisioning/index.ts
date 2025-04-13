@@ -102,7 +102,9 @@ serve(async (req) => {
   try {
     payload = await req.json();
     // Basic validation of payload structure
-    if (payload.type !== 'custom_access_token' || !payload.user || !payload.claims) {
+    if (
+      payload.type !== 'custom_access_token' || !payload.user || !payload.claims
+    ) {
       throw new Error('Invalid hook payload structure');
     }
   } catch (e) {
@@ -110,11 +112,16 @@ serve(async (req) => {
       ? e.message
       : 'Invalid JSON body';
     console.error('Hook Payload Parsing Error:', parseErrorMessage);
-    return new Response(JSON.stringify({ error: `Bad Request: ${parseErrorMessage}` }), { status: 400 });
+    return new Response(
+      JSON.stringify({ error: `Bad Request: ${parseErrorMessage}` }),
+      { status: 400 },
+    );
   }
 
   const { user, claims } = payload;
-  console.log(`Processing JIT provisioning for user: ${user.id} (${user.email})`);
+  console.log(
+    `Processing JIT provisioning for user: ${user.id} (${user.email})`,
+  );
 
   // --- Main JIT Logic ---
   try {
@@ -145,12 +152,19 @@ serve(async (req) => {
       .maybeSingle(); // Use maybeSingle as config might not exist
 
     if (configError) {
-      console.error(`Error fetching SSO config for domain ${domain}:`, configError.message);
-      throw new Error(`Database error fetching SSO config: ${configError.message}`);
+      console.error(
+        `Error fetching SSO config for domain ${domain}:`,
+        configError.message,
+      );
+      throw new Error(
+        `Database error fetching SSO config: ${configError.message}`,
+      );
     }
 
     if (!ssoConfig) {
-      console.warn(`No active SSO configuration found for domain: ${domain}. Skipping JIT.`);
+      console.warn(
+        `No active SSO configuration found for domain: ${domain}. Skipping JIT.`,
+      );
       return new Response(JSON.stringify({ custom_claims: {} }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -160,47 +174,67 @@ serve(async (req) => {
 
     // 3. Parse Attributes based on Mapping
     const attributeMapping = config.attribute_mapping;
-    const userFullName = getValueFromPath(user, attributeMapping?.full_name) || user.email; // Fallback to email if name not mapped/found
+    const userFullName = getValueFromPath(user, attributeMapping?.full_name) ||
+      user.email; // Fallback to email if name not mapped/found
     console.log(`Mapped full_name: ${userFullName}`);
 
     // 4. Create/Update User Profile
-    const { data: profile, error: profileUpsertError } = await supabaseAdminClient
-      .from('user_profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          full_name: userFullName,
-          is_active: true, // Ensure user is marked active on SSO login
-        },
-        { onConflict: 'user_id' },
-      )
-      .select('user_id') // Select minimal data
-      .single();
+    const { data: profile, error: profileUpsertError } =
+      await supabaseAdminClient
+        .from('user_profiles')
+        .upsert(
+          {
+            user_id: user.id,
+            full_name: userFullName,
+            is_active: true, // Ensure user is marked active on SSO login
+          },
+          { onConflict: 'user_id' },
+        )
+        .select('user_id') // Select minimal data
+        .single();
 
     if (profileUpsertError) {
-      console.error(`Error upserting user profile for ${user.id}:`, profileUpsertError.message);
-      throw new Error(`Database error upserting profile: ${profileUpsertError.message}`);
+      console.error(
+        `Error upserting user profile for ${user.id}:`,
+        profileUpsertError.message,
+      );
+      throw new Error(
+        `Database error upserting profile: ${profileUpsertError.message}`,
+      );
     }
     console.log(`User profile upserted for ${user.id}`);
 
     // 5. Determine Role based on Mapping
     let assignedRole = attributeMapping?.role?.default_role || 'Client Viewer'; // Fallback role
-    if (attributeMapping?.role?.attribute_name && attributeMapping?.role?.mappings) {
-      const roleAttributeValue = getValueFromPath(user, attributeMapping.role.attribute_name);
-      console.log(`Role attribute (${attributeMapping.role.attribute_name}) value: ${roleAttributeValue}`);
+    if (
+      attributeMapping?.role?.attribute_name && attributeMapping?.role?.mappings
+    ) {
+      const roleAttributeValue = getValueFromPath(
+        user,
+        attributeMapping.role.attribute_name,
+      );
+      console.log(
+        `Role attribute (${attributeMapping.role.attribute_name}) value: ${roleAttributeValue}`,
+      );
       if (roleAttributeValue) {
         // Handle single value or array of values
-        const rolesToCheck = Array.isArray(roleAttributeValue) ? roleAttributeValue : [roleAttributeValue];
+        const rolesToCheck = Array.isArray(roleAttributeValue)
+          ? roleAttributeValue
+          : [roleAttributeValue];
         for (const idpRole of rolesToCheck) {
           if (attributeMapping.role.mappings[idpRole]) {
             assignedRole = attributeMapping.role.mappings[idpRole];
-            console.log(`Mapped IdP role "${idpRole}" to internal role "${assignedRole}"`);
+            console.log(
+              `Mapped IdP role "${idpRole}" to internal role "${assignedRole}"`,
+            );
             break; // Use the first match found
           }
         }
       }
     }
-    console.log(`Final assigned role for user ${user.id} in company ${config.company_id}: ${assignedRole}`);
+    console.log(
+      `Final assigned role for user ${user.id} in company ${config.company_id}: ${assignedRole}`,
+    );
 
     // 6. Create/Update Company User Association
     const { error: companyUserUpsertError } = await supabaseAdminClient
@@ -215,16 +249,28 @@ serve(async (req) => {
       );
 
     if (companyUserUpsertError) {
-      console.error(`Error upserting company user record for user ${user.id}, company ${config.company_id}:`, companyUserUpsertError.message);
+      console.error(
+        `Error upserting company user record for user ${user.id}, company ${config.company_id}:`,
+        companyUserUpsertError.message,
+      );
       // Check for specific errors like invalid role FK
-      if (companyUserUpsertError.code === '23503' && companyUserUpsertError.message.includes('company_users_role_fkey')) {
-         console.error(`Invalid role "${assignedRole}" assigned via SSO mapping. Check roles table and SSO config.`);
-         // Potentially assign a default valid role here instead of failing? Or log and return error?
-         // For now, let the error propagate.
+      if (
+        companyUserUpsertError.code === '23503' &&
+        companyUserUpsertError.message.includes('company_users_role_fkey')
+      ) {
+        console.error(
+          `Invalid role "${assignedRole}" assigned via SSO mapping. Check roles table and SSO config.`,
+        );
+        // Potentially assign a default valid role here instead of failing? Or log and return error?
+        // For now, let the error propagate.
       }
-      throw new Error(`Database error upserting company user: ${companyUserUpsertError.message}`);
+      throw new Error(
+        `Database error upserting company user: ${companyUserUpsertError.message}`,
+      );
     }
-    console.log(`Company user record upserted for user ${user.id}, company ${config.company_id}`);
+    console.log(
+      `Company user record upserted for user ${user.id}, company ${config.company_id}`,
+    );
 
     // 7. Prepare Custom Claims to Return
     const customClaims = {
@@ -233,7 +279,10 @@ serve(async (req) => {
       // Add any other claims needed in the JWT session
     };
 
-    console.log(`JIT provisioning complete for user ${user.id}. Returning custom claims:`, customClaims);
+    console.log(
+      `JIT provisioning complete for user ${user.id}. Returning custom claims:`,
+      customClaims,
+    );
 
     // --- Return Modified Claims ---
     return new Response(
@@ -243,7 +292,6 @@ serve(async (req) => {
         status: 200,
       },
     );
-
   } catch (error) {
     const processErrorMessage = error instanceof Error
       ? error.message

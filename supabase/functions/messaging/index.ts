@@ -29,7 +29,10 @@ async function checkParticipation(
     p_conversation_id: conversationId,
   });
   if (error) {
-    console.error(`Error checking participation via RPC for convo ${conversationId}:`, error);
+    console.error(
+      `Error checking participation via RPC for convo ${conversationId}:`,
+      error,
+    );
     return false;
   }
   return data === true;
@@ -90,7 +93,9 @@ serve(async (req) => {
     return createBadRequestResponse('Invalid endpoint path');
   }
 
-  console.log(`Resource: ${resourceType}, Conversation ID: ${conversationId}, Message ID: ${messageId}`);
+  console.log(
+    `Resource: ${resourceType}, Conversation ID: ${conversationId}, Message ID: ${messageId}`,
+  );
 
   try {
     switch (req.method) {
@@ -116,8 +121,16 @@ serve(async (req) => {
           // GET /conversations/{conversationId}/messages - List messages
           console.log(`Listing messages for conversation ${conversationId}`);
           // Permission check: Must be participant
-          const isParticipant = await checkParticipation(supabaseClient, user.id, conversationId);
-          if (!isParticipant) return createForbiddenResponse('Not a participant of this conversation');
+          const isParticipant = await checkParticipation(
+            supabaseClient,
+            user.id,
+            conversationId,
+          );
+          if (!isParticipant) {
+            return createForbiddenResponse(
+              'Not a participant of this conversation',
+            );
+          }
 
           // Fetch messages
           const { data, error } = await supabaseClient
@@ -139,44 +152,65 @@ serve(async (req) => {
         if (resourceType === 'conversations' && !conversationId) {
           // POST /conversations - Create a new conversation
           console.log(`Creating new conversation for user ${user.id}`);
-          let body: { topic?: string; project_id?: string; task_id?: string; participant_ids: string[] };
+          let body: {
+            topic?: string;
+            project_id?: string;
+            task_id?: string;
+            participant_ids: string[];
+          };
           try {
             body = await req.json();
             const errors: ValidationErrors = {};
-            if (!body.participant_ids || !Array.isArray(body.participant_ids) || body.participant_ids.length === 0) {
-              errors.participant_ids = ['At least one participant ID (besides self) is required'];
+            if (
+              !body.participant_ids || !Array.isArray(body.participant_ids) ||
+              body.participant_ids.length === 0
+            ) {
+              errors.participant_ids = [
+                'At least one participant ID (besides self) is required',
+              ];
             }
             // TODO: Validate participant IDs exist?
             // TODO: Validate project/task IDs exist if provided?
 
-            if (Object.keys(errors).length > 0) return createValidationErrorResponse(errors);
+            if (Object.keys(errors).length > 0) {
+              return createValidationErrorResponse(errors);
+            }
           } catch (e) {
-            return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+            return createBadRequestResponse(
+              e instanceof Error ? e.message : 'Invalid JSON body',
+            );
           }
 
           // Ensure creator is included in participants
-          const allParticipantIds = Array.from(new Set([...body.participant_ids, user.id]));
+          const allParticipantIds = Array.from(
+            new Set([...body.participant_ids, user.id]),
+          );
 
           // --- Create Conversation and Participants (Needs Transaction ideally) ---
           // TODO(transaction): Wrap in RPC for atomicity
           console.warn('TODO: Wrap conversation creation in transaction (RPC)');
 
           // 1. Create Conversation
-          const { data: newConversation, error: convoError } = await supabaseClient
-            .from('conversations')
-            .insert({
-              topic: body.topic,
-              project_id: body.project_id,
-              task_id: body.task_id,
-              // company_id might be derived later or set based on project/task
-            })
-            .select('id')
-            .single();
+          const { data: newConversation, error: convoError } =
+            await supabaseClient
+              .from('conversations')
+              .insert({
+                topic: body.topic,
+                project_id: body.project_id,
+                task_id: body.task_id,
+                // company_id might be derived later or set based on project/task
+              })
+              .select('id')
+              .single();
 
-          if (convoError || !newConversation) throw new Error(`Failed to create conversation: ${convoError?.message}`);
+          if (convoError || !newConversation) {
+            throw new Error(
+              `Failed to create conversation: ${convoError?.message}`,
+            );
+          }
 
           // 2. Add Participants
-          const participantRecords = allParticipantIds.map(pId => ({
+          const participantRecords = allParticipantIds.map((pId) => ({
             conversation_id: newConversation.id,
             user_id: pId,
           }));
@@ -186,18 +220,26 @@ serve(async (req) => {
 
           if (participantError) {
             // Attempt cleanup if participants fail? Transaction needed.
-            console.error('Failed to add participants:', participantError.message);
+            console.error(
+              'Failed to add participants:',
+              participantError.message,
+            );
             // await supabaseClient.from('conversations').delete().eq('id', newConversation.id); // Requires transaction
-            throw new Error(`Failed to add participants: ${participantError.message}`);
+            throw new Error(
+              `Failed to add participants: ${participantError.message}`,
+            );
           }
           // --- End Transaction Block ---
 
           // Fetch the created conversation with participants for response
-          const { data: finalConversation, error: fetchFinalError } = await supabaseClient
-            .from('conversations')
-            .select(`*, participants:conversation_participants ( user_profiles ( user_id, full_name, avatar_url ) )`)
-            .eq('id', newConversation.id)
-            .single();
+          const { data: finalConversation, error: fetchFinalError } =
+            await supabaseClient
+              .from('conversations')
+              .select(
+                `*, participants:conversation_participants ( user_profiles ( user_id, full_name, avatar_url ) )`,
+              )
+              .eq('id', newConversation.id)
+              .single();
 
           if (fetchFinalError) throw fetchFinalError; // Should not happen
 
@@ -205,7 +247,6 @@ serve(async (req) => {
             status: 201,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
-
         } else if (resourceType === 'messages' && conversationId) {
           // POST /conversations/{conversationId}/messages - Send a message
           console.log(`Sending message to conversation ${conversationId}`);
@@ -213,15 +254,27 @@ serve(async (req) => {
           try {
             body = await req.json();
             if (!body.content || body.content.trim().length === 0) {
-              return createValidationErrorResponse({ content: ['Message content cannot be empty'] });
+              return createValidationErrorResponse({
+                content: ['Message content cannot be empty'],
+              });
             }
           } catch (e) {
-            return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+            return createBadRequestResponse(
+              e instanceof Error ? e.message : 'Invalid JSON body',
+            );
           }
 
           // Permission check: Must be participant (RLS handles this on INSERT, but check here for better error)
-          const isParticipant = await checkParticipation(supabaseClient, user.id, conversationId);
-          if (!isParticipant) return createForbiddenResponse('Not a participant of this conversation');
+          const isParticipant = await checkParticipation(
+            supabaseClient,
+            user.id,
+            conversationId,
+          );
+          if (!isParticipant) {
+            return createForbiddenResponse(
+              'Not a participant of this conversation',
+            );
+          }
 
           // Insert message
           const { data: newMessage, error: insertError } = await supabaseClient
@@ -253,10 +306,23 @@ serve(async (req) => {
   } catch (error) {
     // Handle potential database errors
     if (error.code) { // Check if it looks like a PostgrestError
-        console.error('Database Error:', error.message, error.code, error.details);
-        if (error.code === '23505') return createConflictResponse(`Record already exists: ${error.details}`);
-        if (error.code === '23514') return createBadRequestResponse(`Invalid input: ${error.details}`);
-        if (error.code === '23503') return createBadRequestResponse(`Invalid reference: ${error.details}`);
+      console.error(
+        'Database Error:',
+        error.message,
+        error.code,
+        error.details,
+      );
+      if (error.code === '23505') {
+        return createConflictResponse(
+          `Record already exists: ${error.details}`,
+        );
+      }
+      if (error.code === '23514') {
+        return createBadRequestResponse(`Invalid input: ${error.details}`);
+      }
+      if (error.code === '23503') {
+        return createBadRequestResponse(`Invalid reference: ${error.details}`);
+      }
     }
     // Use the standardized internal server error response for other errors
     return createInternalServerErrorResponse(undefined, error);

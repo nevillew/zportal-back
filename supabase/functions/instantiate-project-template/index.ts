@@ -166,7 +166,9 @@ serve(async (req) => {
       'Error initializing Supabase client or getting user:',
       setupErrorMessage,
     );
-    return createInternalServerErrorResponse('Internal Server Error during setup');
+    return createInternalServerErrorResponse(
+      'Internal Server Error during setup',
+    );
   }
 
   // --- Request Parsing and Validation ---
@@ -231,7 +233,9 @@ serve(async (req) => {
       ? error.message
       : 'Unknown error checking permissions';
     console.error('Error checking permissions:', permissionCheckErrorMessage);
-    return createInternalServerErrorResponse('Internal Server Error checking permissions');
+    return createInternalServerErrorResponse(
+      'Internal Server Error checking permissions',
+    );
   }
 
   // --- Main Instantiation Logic ---
@@ -256,11 +260,16 @@ serve(async (req) => {
     if (rpcError) {
       console.error('Error calling instantiate_template_rpc:', rpcError);
       // Check for specific PostgreSQL error codes raised by the RPC function
-      if (rpcError.code && rpcError.message.includes('does not have permission')) {
-         return createForbiddenResponse(rpcError.message);
+      if (
+        rpcError.code && rpcError.message.includes('does not have permission')
+      ) {
+        return createForbiddenResponse(rpcError.message);
       }
-      if (rpcError.code && (rpcError.message.includes('not found') || rpcError.code === 'PGRST116')) {
-         return createNotFoundResponse(rpcError.message);
+      if (
+        rpcError.code &&
+        (rpcError.message.includes('not found') || rpcError.code === 'PGRST116')
+      ) {
+        return createNotFoundResponse(rpcError.message);
       }
       // Default to internal server error for other RPC errors
       throw new Error(`RPC Error: ${rpcError.message}`); // Throw to be caught by main catch
@@ -563,18 +572,21 @@ serve(async (req) => {
       status: 201, // Created
     });
     --- END OLD LOGIC --- */
-
   } catch (error) {
     // Catch any error thrown during the process (including RPC call errors)
     const instantiationErrorMessage = error instanceof Error
       ? error.message
       : 'Unknown internal server error during instantiation';
-    console.error('Project Instantiation Failed:', instantiationErrorMessage, error);
+    console.error(
+      'Project Instantiation Failed:',
+      instantiationErrorMessage,
+      error,
+    );
     // TODO(transaction): Implement transaction rollback here if applicable (depends on chosen transaction strategy).
     // Return a specific error message indicating failure during instantiation
     return createInternalServerErrorResponse(
-        `Project instantiation failed: ${instantiationErrorMessage}`,
-        error instanceof Error ? error : undefined // Pass original error if available
+      `Project instantiation failed: ${instantiationErrorMessage}`,
+      error instanceof Error ? error : undefined, // Pass original error if available
     );
   }
 });

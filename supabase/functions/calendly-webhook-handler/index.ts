@@ -105,7 +105,9 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
   } catch (e) {
-    const setupErrorMessage = e instanceof Error ? e.message : 'Admin client setup error';
+    const setupErrorMessage = e instanceof Error
+      ? e.message
+      : 'Admin client setup error';
     console.error('Admin Client Setup Error:', setupErrorMessage);
     return createInternalServerErrorResponse(setupErrorMessage);
   }
@@ -114,24 +116,28 @@ serve(async (req) => {
   let rawBody: string;
   try {
     rawBody = await req.text(); // Read body as text first for signature check
-    const webhookSecret = await getSecret(supabaseAdminClient, 'CALENDLY_WEBHOOK_SECRET');
+    const webhookSecret = await getSecret(
+      supabaseAdminClient,
+      'CALENDLY_WEBHOOK_SECRET',
+    );
     if (!webhookSecret) {
       console.error('Calendly webhook secret not configured.');
-      return createInternalServerErrorResponse('Webhook secret not configured.');
+      return createInternalServerErrorResponse(
+        'Webhook secret not configured.',
+      );
     }
 
     // Clone the request to read the body again as JSON later
     const reqClone = new Request(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: new ReadableStream({
-            start(controller) {
-                controller.enqueue(new TextEncoder().encode(rawBody));
-                controller.close();
-            }
-        })
+      method: req.method,
+      headers: req.headers,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(rawBody));
+          controller.close();
+        },
+      }),
     });
-
 
     const isVerified = await verifySignature(webhookSecret, req, rawBody);
     if (!isVerified) {
@@ -140,9 +146,10 @@ serve(async (req) => {
     }
     console.log('Calendly webhook signature verified.');
     req = reqClone; // Use the cloned request for JSON parsing
-
   } catch (e) {
-    const sigErrorMessage = e instanceof Error ? e.message : 'Error verifying signature';
+    const sigErrorMessage = e instanceof Error
+      ? e.message
+      : 'Error verifying signature';
     console.error('Signature Verification Error:', sigErrorMessage);
     return createBadRequestResponse(sigErrorMessage);
   }
@@ -156,7 +163,9 @@ serve(async (req) => {
       throw new Error('Invalid Calendly payload structure');
     }
   } catch (e) {
-    const parseErrorMessage = e instanceof Error ? e.message : 'Invalid JSON body';
+    const parseErrorMessage = e instanceof Error
+      ? e.message
+      : 'Invalid JSON body';
     console.error('Payload Parsing Error:', parseErrorMessage);
     return createBadRequestResponse(parseErrorMessage);
   }
@@ -176,16 +185,21 @@ serve(async (req) => {
       const scheduledAt = eventData.scheduled_event?.start_time;
       const endTime = eventData.scheduled_event?.end_time;
       const eventName = eventData.scheduled_event?.name || 'Calendly Meeting';
-      const attendees = eventData.scheduled_event?.event_memberships?.map((m: any) => ({
-        email: m.user_email,
-        name: m.user_name,
-      })) || [];
+      const attendees =
+        eventData.scheduled_event?.event_memberships?.map((m: any) => ({
+          email: m.user_email,
+          name: m.user_name,
+        })) || [];
       const questions = eventData.questions_and_answers || [];
 
       // --- Extract Context (Project/Company ID) ---
       // This relies on custom questions being configured in Calendly
-      const projectIdAnswer = questions.find((q: any) => q.question?.toLowerCase().includes('project id'))?.answer;
-      const companyIdAnswer = questions.find((q: any) => q.question?.toLowerCase().includes('company id'))?.answer;
+      const projectIdAnswer = questions.find((q: any) =>
+        q.question?.toLowerCase().includes('project id')
+      )?.answer;
+      const companyIdAnswer = questions.find((q: any) =>
+        q.question?.toLowerCase().includes('company id')
+      )?.answer;
       // TODO: Add validation/parsing for these IDs if needed
 
       const projectId = projectIdAnswer || null;
@@ -193,20 +207,25 @@ serve(async (req) => {
 
       // If project ID is present, derive company ID from it
       if (projectId && !companyId) {
-        const { data: projectData, error: projError } = await supabaseAdminClient
-          .from('projects')
-          .select('company_id')
-          .eq('id', projectId)
-          .single();
+        const { data: projectData, error: projError } =
+          await supabaseAdminClient
+            .from('projects')
+            .select('company_id')
+            .eq('id', projectId)
+            .single();
         if (projError) {
-          console.warn(`Could not fetch project ${projectId} to determine company ID: ${projError.message}`);
+          console.warn(
+            `Could not fetch project ${projectId} to determine company ID: ${projError.message}`,
+          );
         } else {
           companyId = projectData?.company_id;
         }
       }
 
       if (!companyId && !projectId) {
-        console.warn('Webhook payload missing project_id or company_id context. Cannot associate meeting.');
+        console.warn(
+          'Webhook payload missing project_id or company_id context. Cannot associate meeting.',
+        );
         // Decide whether to still create the meeting without association or return an error
         // return createBadRequestResponse('Missing project or company context in webhook payload.');
       }
@@ -215,7 +234,10 @@ serve(async (req) => {
       // Calculate duration
       let durationMinutes = null;
       if (scheduledAt && endTime) {
-        durationMinutes = Math.round((new Date(endTime).getTime() - new Date(scheduledAt).getTime()) / (1000 * 60));
+        durationMinutes = Math.round(
+          (new Date(endTime).getTime() - new Date(scheduledAt).getTime()) /
+            (1000 * 60),
+        );
       }
 
       // Upsert meeting record
@@ -223,11 +245,15 @@ serve(async (req) => {
         calendly_event_uri: eventUri,
         calendly_invitee_uri: inviteeUri, // Use invitee URI for potential uniqueness if multiple invitees per event
         name: eventName,
-        type: eventName.toLowerCase().includes('discovery') ? 'discovery' : // Simple type mapping based on name
-              eventName.toLowerCase().includes('solution') ? 'solution_walkthrough' :
-              eventName.toLowerCase().includes('build') ? 'build_walkthrough' :
-              eventName.toLowerCase().includes('uat') ? 'uat_kickoff' : // Add more specific types
-              'check_in', // Default type
+        type: eventName.toLowerCase().includes('discovery')
+          ? 'discovery' // Simple type mapping based on name
+          : eventName.toLowerCase().includes('solution')
+          ? 'solution_walkthrough'
+          : eventName.toLowerCase().includes('build')
+          ? 'build_walkthrough'
+          : eventName.toLowerCase().includes('uat')
+          ? 'uat_kickoff' // Add more specific types
+          : 'check_in', // Default type
         status: 'scheduled',
         scheduled_at: scheduledAt,
         duration_minutes: durationMinutes,
@@ -238,14 +264,19 @@ serve(async (req) => {
 
       const { error: upsertError } = await supabaseAdminClient
         .from('meetings')
-        .upsert(meetingRecord, { onConflict: 'calendly_event_uri, calendly_invitee_uri' }); // Upsert based on event+invitee
+        .upsert(meetingRecord, {
+          onConflict: 'calendly_event_uri, calendly_invitee_uri',
+        }); // Upsert based on event+invitee
 
       if (upsertError) {
         console.error('Error upserting meeting record:', upsertError.message);
-        throw new Error(`Database error saving meeting: ${upsertError.message}`);
+        throw new Error(
+          `Database error saving meeting: ${upsertError.message}`,
+        );
       }
-      console.log(`Meeting record upserted successfully for event ${eventUri}, invitee ${inviteeUri}`);
-
+      console.log(
+        `Meeting record upserted successfully for event ${eventUri}, invitee ${inviteeUri}`,
+      );
     } else if (eventType === 'invitee.canceled') {
       console.log('Processing invitee.canceled event...');
       const eventUri = eventData.event?.uri;
@@ -264,25 +295,37 @@ serve(async (req) => {
         .eq('calendly_invitee_uri', inviteeUri); // Match specific invitee cancellation
 
       if (updateError) {
-        console.error(`Error updating meeting status to cancelled for event ${eventUri}, invitee ${inviteeUri}:`, updateError.message);
+        console.error(
+          `Error updating meeting status to cancelled for event ${eventUri}, invitee ${inviteeUri}:`,
+          updateError.message,
+        );
         // Don't throw, just log, as the meeting might not exist or RLS prevented update
       } else {
-        console.log(`Meeting status updated to cancelled for event ${eventUri}, invitee ${inviteeUri}`);
+        console.log(
+          `Meeting status updated to cancelled for event ${eventUri}, invitee ${inviteeUri}`,
+        );
       }
-
     } else {
       console.log(`Ignoring unhandled Calendly event type: ${eventType}`);
     }
 
     // Respond to Calendly successfully
-    return new Response(JSON.stringify({ message: 'Webhook received successfully' }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify({ message: 'Webhook received successfully' }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error) {
-    const processErrorMessage = error instanceof Error ? error.message : 'Unknown error processing webhook';
-    console.error('Calendly Webhook Processing Error:', processErrorMessage, error);
+    const processErrorMessage = error instanceof Error
+      ? error.message
+      : 'Unknown error processing webhook';
+    console.error(
+      'Calendly Webhook Processing Error:',
+      processErrorMessage,
+      error,
+    );
     // Log failure to background_job_failures or Sentry
     // await logFailure(supabaseAdminClient, 'calendly-webhook-handler', payload, error);
     return createInternalServerErrorResponse(processErrorMessage, error);

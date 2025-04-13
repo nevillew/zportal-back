@@ -183,14 +183,29 @@ serve(async (req) => {
           if (!newRiskData.project_id) {
             errors.project_id = ['Project ID is required'];
           }
-          if (newRiskData.status !== undefined && !validStatuses.includes(newRiskData.status)) {
-            errors.status = [`Status must be one of: ${validStatuses.join(', ')}`];
+          if (
+            newRiskData.status !== undefined &&
+            !validStatuses.includes(newRiskData.status)
+          ) {
+            errors.status = [
+              `Status must be one of: ${validStatuses.join(', ')}`,
+            ];
           }
-          if (newRiskData.probability !== undefined && !validProbabilities.includes(newRiskData.probability)) {
-            errors.probability = [`Probability must be one of: ${validProbabilities.join(', ')}`];
+          if (
+            newRiskData.probability !== undefined &&
+            !validProbabilities.includes(newRiskData.probability)
+          ) {
+            errors.probability = [
+              `Probability must be one of: ${validProbabilities.join(', ')}`,
+            ];
           }
-          if (newRiskData.impact !== undefined && !validImpacts.includes(newRiskData.impact)) {
-            errors.impact = [`Impact must be one of: ${validImpacts.join(', ')}`];
+          if (
+            newRiskData.impact !== undefined &&
+            !validImpacts.includes(newRiskData.impact)
+          ) {
+            errors.impact = [
+              `Impact must be one of: ${validImpacts.join(', ')}`,
+            ];
           }
           // --- End Validation ---
 
@@ -266,10 +281,10 @@ serve(async (req) => {
             const constraint = insertError.message.includes('project_id')
               ? 'project_id'
               : insertError.message.includes('reported_by_user_id')
-                ? 'reported_by_user_id'
-                : insertError.message.includes('assigned_to_user_id')
-                  ? 'assigned_to_user_id'
-                  : 'unknown foreign key';
+              ? 'reported_by_user_id'
+              : insertError.message.includes('assigned_to_user_id')
+              ? 'assigned_to_user_id'
+              : 'unknown foreign key';
             return createBadRequestResponse(
               `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
@@ -278,7 +293,9 @@ serve(async (req) => {
               `Invalid field value: ${insertError.message}. Check status, probability, or impact.`,
             );
           } else if (insertError.code === '23502') { // Not null violation
-            const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
+            const columnMatch = insertError.message.match(
+              /null value in column "(.+?)"/,
+            );
             const column = columnMatch ? columnMatch[1] : 'unknown';
             return createBadRequestResponse(`The ${column} field is required.`);
           }
@@ -358,14 +375,29 @@ serve(async (req) => {
           }
 
           // --- Validation ---
-          if (updateData.status !== undefined && !validStatuses.includes(updateData.status)) {
-            errors.status = [`Status must be one of: ${validStatuses.join(', ')}`];
+          if (
+            updateData.status !== undefined &&
+            !validStatuses.includes(updateData.status)
+          ) {
+            errors.status = [
+              `Status must be one of: ${validStatuses.join(', ')}`,
+            ];
           }
-          if (updateData.probability !== undefined && !validProbabilities.includes(updateData.probability)) {
-            errors.probability = [`Probability must be one of: ${validProbabilities.join(', ')}`];
+          if (
+            updateData.probability !== undefined &&
+            !validProbabilities.includes(updateData.probability)
+          ) {
+            errors.probability = [
+              `Probability must be one of: ${validProbabilities.join(', ')}`,
+            ];
           }
-          if (updateData.impact !== undefined && !validImpacts.includes(updateData.impact)) {
-            errors.impact = [`Impact must be one of: ${validImpacts.join(', ')}`];
+          if (
+            updateData.impact !== undefined &&
+            !validImpacts.includes(updateData.impact)
+          ) {
+            errors.impact = [
+              `Impact must be one of: ${validImpacts.join(', ')}`,
+            ];
           }
           // --- End Validation ---
 
@@ -412,9 +444,10 @@ serve(async (req) => {
           if (updateError.code === 'PGRST204') { // No rows updated/selected
             return createNotFoundResponse('Risk not found or update failed');
           } else if (updateError.code === '23503') { // Foreign key violation
-            const constraint = updateError.message.includes('assigned_to_user_id')
-              ? 'assigned_to_user_id'
-              : 'unknown foreign key';
+            const constraint =
+              updateError.message.includes('assigned_to_user_id')
+                ? 'assigned_to_user_id'
+                : 'unknown foreign key';
             return createBadRequestResponse(
               `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
@@ -423,7 +456,9 @@ serve(async (req) => {
               `Invalid field value: ${updateError.message}. Check status, probability, or impact.`,
             );
           } else if (updateError.code === '23502') { // Not null violation
-            const columnMatch = updateError.message.match(/null value in column "(.+?)"/);
+            const columnMatch = updateError.message.match(
+              /null value in column "(.+?)"/,
+            );
             const column = columnMatch ? columnMatch[1] : 'unknown';
             return createBadRequestResponse(`The ${column} field is required.`);
           }

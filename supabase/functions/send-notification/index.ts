@@ -116,7 +116,9 @@ serve(async (req) => {
       !authorizationHeader ||
       authorizationHeader !== `Bearer ${internalAuthSecret}`
     ) {
-      console.warn('Unauthorized attempt to call internal notification function.');
+      console.warn(
+        'Unauthorized attempt to call internal notification function.',
+      );
       return createUnauthorizedResponse('Invalid internal authorization');
     }
   } catch (e) {
@@ -181,18 +183,23 @@ serve(async (req) => {
   }
 
   // --- Process Notifications ---
-  const results = { email: { sent: 0, failed: 0 }, slack: { sent: 0, failed: 0 } };
+  const results = {
+    email: { sent: 0, failed: 0 },
+    slack: { sent: 0, failed: 0 },
+  };
 
   for (const recipient of payload.recipients) {
     // --- Send Email (if applicable) ---
     if (
-      (payload.type === 'email' || payload.type === 'both') && recipient.email &&
+      (payload.type === 'email' || payload.type === 'both') &&
+      recipient.email &&
       resendApiKey
     ) {
       try {
         console.log(`Attempting to send email to: ${recipient.email}`);
         const resendPayload = {
-          from: Deno.env.get('RESEND_FROM_EMAIL') || 'ZPortal <noreply@yourdomain.com>', // Configure sender email
+          from: Deno.env.get('RESEND_FROM_EMAIL') ||
+            'ZPortal <noreply@yourdomain.com>', // Configure sender email
           to: [recipient.email],
           subject: payload.subject!,
           html: payload.message, // Assuming message is HTML for email
@@ -256,7 +263,9 @@ serve(async (req) => {
         const responseData = await response.json();
         if (!response.ok || !responseData.ok) {
           throw new Error(
-            `Slack API error: ${response.status} - ${responseData.error || await response.text()}`,
+            `Slack API error: ${response.status} - ${
+              responseData.error || await response.text()
+            }`,
           );
         }
         console.log(`Slack message sent successfully to: ${target}`);

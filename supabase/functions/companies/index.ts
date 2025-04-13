@@ -1,16 +1,19 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  createClient,
+  SupabaseClient as _SupabaseClient,
+} from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
-    createBadRequestResponse,
-    createConflictResponse,
-    createForbiddenResponse,
-    createInternalServerErrorResponse,
-    createMethodNotAllowedResponse,
-    createNotFoundResponse,
-    createUnauthorizedResponse,
-    createValidationErrorResponse, // Keep if needed for future validation
-    ValidationErrors,
+  createBadRequestResponse,
+  createConflictResponse,
+  createForbiddenResponse,
+  createInternalServerErrorResponse,
+  createMethodNotAllowedResponse,
+  createNotFoundResponse,
+  createUnauthorizedResponse,
+  createValidationErrorResponse as _createValidationErrorResponse, // Keep if needed for future validation
+  ValidationErrors as _ValidationErrors,
 } from '../_shared/validation.ts';
 
 console.log('Companies function started');
@@ -150,7 +153,7 @@ serve(async (req) => {
           if (!companyData) {
             // Could be not found OR RLS prevented access
             // Check if the company exists at all (for staff override potentially, or better error message)
-            const { data: existsCheck, error: existsError } =
+            const { data: _existsCheck, error: existsError } =
               await supabaseClient
                 .from('companies')
                 .select('id')
@@ -173,7 +176,8 @@ serve(async (req) => {
           }
 
           // Remove the join table data before returning
-          const { company_users, ...companyDetails } = companyData;
+          const { company_users: _company_users, ...companyDetails } =
+            companyData;
 
           // Fetch associated custom fields for this company
           const { data: customFields, error: cfError } = await supabaseClient
@@ -192,7 +196,7 @@ serve(async (req) => {
           }
 
           // Format custom fields
-          const formattedCustomFields: { [key: string]: any } = {};
+          const formattedCustomFields: { [key: string]: unknown } = {};
           if (customFields !== null) {
             customFields?.forEach((cf) => {
               const definition = cf.custom_field_definitions?.[0];
@@ -238,10 +242,9 @@ serve(async (req) => {
             `Found ${companies?.length || 0} companies for user ${user.id}`,
           );
           // We only need company data, not the join table info in the response
-          const userCompanies =
-            companies?.map(({ company_users, ...companyData }) =>
-              companyData
-            ) || [];
+          const userCompanies = companies?.map((
+            { company_users: _company_users, ...companyData },
+          ) => companyData) || [];
 
           return new Response(JSON.stringify(userCompanies), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -273,7 +276,10 @@ serve(async (req) => {
               },
             );
           if (permissionError) {
-            console.error(`Error checking permissions for user ${user.id}:`, permissionError.message);
+            console.error(
+              `Error checking permissions for user ${user.id}:`,
+              permissionError.message,
+            );
             throw permissionError;
           }
 
@@ -349,15 +355,16 @@ serve(async (req) => {
           console.log(`Attempting to create a new company by user ${user.id}`);
 
           // Check if user has permission to create companies (staff only)
-          const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-            'has_permission',
-            {
-              user_id: user.id,
-              company_id: '00000000-0000-0000-0000-000000000000', // System-wide permission check
-              permission_key: 'admin:create_company',
-            },
-          );
-          
+          const { data: hasPermission, error: permissionError } =
+            await supabaseClient.rpc(
+              'has_permission',
+              {
+                user_id: user.id,
+                company_id: '00000000-0000-0000-0000-000000000000', // System-wide permission check
+                permission_key: 'admin:create_company',
+              },
+            );
+
           if (permissionError) {
             console.error(
               `Error checking permissions for user ${user.id}:`,
@@ -406,13 +413,19 @@ serve(async (req) => {
 
           if (insertError) {
             console.error('Error creating company:', insertError.message);
-            
+
             // Handle specific database errors
             if (insertError.code === '23505') { // PostgreSQL unique violation code
-              const constraintMatch = insertError.message.match(/violates unique constraint "(.+?)"/);
-              const constraint = constraintMatch ? constraintMatch[1] : 'unknown';
+              const constraintMatch = insertError.message.match(
+                /violates unique constraint "(.+?)"/,
+              );
+              const constraint = constraintMatch
+                ? constraintMatch[1]
+                : 'unknown';
               if (constraint.includes('name')) {
-                return createConflictResponse('A company with this name already exists');
+                return createConflictResponse(
+                  'A company with this name already exists',
+                );
               }
             }
             // For other errors, let the main catch handler deal with it
@@ -436,7 +449,7 @@ serve(async (req) => {
                 defError.message,
               );
             } else if (definitions) {
-              const valuesToUpsert: any[] = [];
+              const valuesToUpsert: Record<string, unknown>[] = [];
               const definitionMap = new Map(
                 definitions.map((d) => [d.name, d.id]),
               );
@@ -536,7 +549,9 @@ serve(async (req) => {
             console.error(
               `User ${user.id} is not authorized to update company ${companyId}.`,
             );
-            return createForbiddenResponse('Not authorized to update this company');
+            return createForbiddenResponse(
+              'Not authorized to update this company',
+            );
           }
 
           // Parse request body
@@ -588,14 +603,22 @@ serve(async (req) => {
               updateError.message,
             );
             if (updateError.code === 'PGRST204') { // PostgREST code for no rows updated/selected
-              return createNotFoundResponse('Company not found or update failed');
+              return createNotFoundResponse(
+                'Company not found or update failed',
+              );
             }
             // Handle specific database errors
             if (updateError.code === '23505') { // PostgreSQL unique violation code
-              const constraintMatch = updateError.message.match(/violates unique constraint "(.+?)"/);
-              const constraint = constraintMatch ? constraintMatch[1] : 'unknown';
+              const constraintMatch = updateError.message.match(
+                /violates unique constraint "(.+?)"/,
+              );
+              const constraint = constraintMatch
+                ? constraintMatch[1]
+                : 'unknown';
               if (constraint.includes('name')) {
-                return createConflictResponse('A company with this name already exists');
+                return createConflictResponse(
+                  'A company with this name already exists',
+                );
               }
             }
             // For other errors, let the main catch handler deal with it
@@ -619,7 +642,7 @@ serve(async (req) => {
                 defError.message,
               );
             } else if (definitions) {
-              const valuesToUpsert: any[] = [];
+              const valuesToUpsert: Record<string, unknown>[] = [];
               const definitionMap = new Map(
                 definitions.map((d) => [d.name, d.id]),
               );
@@ -742,15 +765,16 @@ serve(async (req) => {
           );
 
           // Check if user has permission to delete companies (staff only)
-          const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-            'has_permission',
-            {
-              user_id: user.id,
-              company_id: companyId,
-              permission_key: 'admin:delete_company',
-            },
-          );
-          
+          const { data: hasPermission, error: permissionError } =
+            await supabaseClient.rpc(
+              'has_permission',
+              {
+                user_id: user.id,
+                company_id: companyId,
+                permission_key: 'admin:delete_company',
+              },
+            );
+
           if (permissionError) {
             console.error(
               `Error checking permissions for user ${user.id}:`,
@@ -783,7 +807,9 @@ serve(async (req) => {
               );
             }
             if (deleteError.code === 'PGRST204') { // PostgREST code for no rows deleted
-              return createNotFoundResponse('Company not found or already deleted');
+              return createNotFoundResponse(
+                'Company not found or already deleted',
+              );
             }
             // For other errors, let the main catch handler deal with it
             throw deleteError;

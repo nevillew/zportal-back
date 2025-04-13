@@ -60,7 +60,9 @@ serve(async (req) => {
       ? e.message
       : 'Unknown error during setup';
     console.error('Auth/Client Error:', setupErrorMessage);
-    return createInternalServerErrorResponse('Internal Server Error during setup');
+    return createInternalServerErrorResponse(
+      'Internal Server Error during setup',
+    );
   }
 
   // --- Request Parsing and Validation ---
@@ -68,7 +70,9 @@ serve(async (req) => {
   try {
     payload = await req.json();
     if (!payload.token) {
-      return createValidationErrorResponse({ token: ['Invitation token is required'] });
+      return createValidationErrorResponse({
+        token: ['Invitation token is required'],
+      });
     }
   } catch (e) {
     const parseErrorMessage = e instanceof Error
@@ -90,8 +94,13 @@ serve(async (req) => {
       .maybeSingle(); // Use maybeSingle as token might not exist
 
     if (fetchError) {
-      console.error(`Error fetching invitation for token ${token}:`, fetchError.message);
-      throw new Error(`Database error fetching invitation: ${fetchError.message}`);
+      console.error(
+        `Error fetching invitation for token ${token}:`,
+        fetchError.message,
+      );
+      throw new Error(
+        `Database error fetching invitation: ${fetchError.message}`,
+      );
     }
 
     // 2. Validate Invitation
@@ -101,7 +110,9 @@ serve(async (req) => {
     }
 
     if (invitation.status !== 'pending') {
-      console.warn(`Invitation token ${token} has already been used or revoked (status: ${invitation.status}).`);
+      console.warn(
+        `Invitation token ${token} has already been used or revoked (status: ${invitation.status}).`,
+      );
       // Use 410 Gone for expired/used tokens
       return createGoneResponse(`Invitation already ${invitation.status}.`);
     }
