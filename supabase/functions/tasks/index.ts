@@ -906,7 +906,27 @@ serve(async (req) => {
           if (updateError.code === 'PGRST204') { // No rows updated/selected
             return createNotFoundResponse('Task not found or update failed');
           }
-          // TODO(db-error): Handle other specific DB errors (e.g., FK violation, unique constraint) with appropriate 4xx status codes.
+          if (updateError.code === '23503') { // Foreign key violation
+            const constraint = updateError.message.includes('section_id')
+              ? 'section_id'
+              : updateError.message.includes('milestone_id')
+              ? 'milestone_id'
+              : updateError.message.includes('parent_task_id')
+              ? 'parent_task_id'
+              : updateError.message.includes('assigned_to_id')
+              ? 'assigned_to_id'
+              : updateError.message.includes('depends_on_task_id')
+              ? 'depends_on_task_id'
+              : 'unknown foreign key';
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
+            );
+          } else if (updateError.code === '23505') { // Unique constraint (if any)
+            return createConflictResponse(
+              `Task update failed due to unique constraint: ${updateError.details}`,
+            );
+          }
+          // Handle other specific DB errors
           throw updateError;
         }
 

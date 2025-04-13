@@ -59,10 +59,46 @@ BEGIN
                     WHERE table_name = 'companies' AND record_id = v_company.id::text
                       AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
                     RETURNING id
+                ),
+                -- Delete logs for projects within the company
+                deleted_project_logs AS (
+                    DELETE FROM public.audit_log
+                    WHERE table_name = 'projects'
+                      AND record_id IN (SELECT id::text FROM public.projects WHERE company_id = v_company.id)
+                      AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
+                    RETURNING id
+                ),
+                -- Delete logs for tasks within the company's projects
+                deleted_task_logs AS (
+                    DELETE FROM public.audit_log
+                    WHERE table_name = 'tasks'
+                      AND record_id IN (
+                          SELECT t.id::text FROM public.tasks t
+                          JOIN public.sections s ON t.section_id = s.id
+                          JOIN public.projects p ON s.project_id = p.id
+                          WHERE p.company_id = v_company.id
+                      )
+                      AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
+                    RETURNING id
+                ),
+                -- Delete logs for company_users within the company
+                deleted_cu_logs AS (
+                    DELETE FROM public.audit_log
+                    WHERE table_name = 'company_users'
+                      AND record_id IN (SELECT id::text FROM public.company_users WHERE company_id = v_company.id)
+                      AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
+                    RETURNING id
                 )
-                SELECT count(*) INTO v_deleted_logs_count FROM deleted_logs;
-                RAISE LOG '  -> Deleted % company audit logs older than % days for company %', v_deleted_logs_count, v_audit_log_retention_days, v_company.id;
-                -- TODO: Expand log deletion logic to cover related entities (projects, tasks, users etc.) based on company_id linkage.
+                -- Add similar CTEs for other relevant tables (risks, issues, milestones, documents, etc.) linked to the company
+                SELECT
+                    (SELECT count(*) FROM deleted_company_logs) +
+                    (SELECT count(*) FROM deleted_project_logs) +
+                    (SELECT count(*) FROM deleted_task_logs) +
+                    (SELECT count(*) FROM deleted_cu_logs)
+                    -- Add counts from other CTEs here
+                INTO v_deleted_logs_count;
+
+                RAISE LOG '  -> Deleted % related audit logs older than % days for company %', v_deleted_logs_count, v_audit_log_retention_days, v_company.id;
             EXCEPTION
                 WHEN others THEN
                     RAISE WARNING 'Error applying audit log retention for company %: %', v_company.id, SQLERRM;

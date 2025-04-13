@@ -16,23 +16,34 @@ import {
 console.log('Milestones function started');
 
 // --- Helper: Get Secret from Vault ---
-// (Assuming this helper exists or is added, similar to send-notification function)
-function getSecret( // Removed async
-  _client: SupabaseClient, // Prefix unused parameter
+async function getSecret(
+  client: SupabaseClient,
   secretName: string,
-): string | null { // Return type changed to string | null
-  console.log(`Attempting to fetch secret: ${secretName}`);
+): Promise<string | null> {
+  console.log(`Attempting to fetch secret via RPC: ${secretName}`);
   try {
-    const secretValue = Deno.env.get(secretName); // Using env var as placeholder/fallback
-    if (!secretValue) {
-      console.warn(`Secret ${secretName} not found in environment variables.`);
-      // TODO: Implement actual Vault fetching logic here using RPC or other secure method
+    const { data: secretValue, error: rpcError } = await client.rpc(
+      'get_decrypted_secret',
+      { p_secret_name: secretName },
+    );
+    if (rpcError) {
+      console.error(
+        `Error fetching secret ${secretName} via RPC:`,
+        rpcError.message,
+      );
       return null;
     }
-    console.log(`Successfully retrieved secret: ${secretName}`);
-    return secretValue;
+    if (!secretValue) {
+      console.warn(`Secret ${secretName} not found via RPC.`);
+      return null;
+    }
+    console.log(`Successfully retrieved secret via RPC: ${secretName}`);
+    return secretValue as string;
   } catch (error) {
-    console.error(`Error fetching secret ${secretName}:`, error);
+    console.error(
+      `Unexpected error fetching secret ${secretName}:`,
+      error instanceof Error ? error.message : error,
+    );
     return null;
   }
 }

@@ -210,9 +210,105 @@ serve(async (_req) => {
         throw insertError;
       }
       console.log('Successfully inserted task instances.');
+
+      // --- Copy Custom Fields ---
+      // Fetch the IDs of the newly inserted tasks based on the definition ID and occurrence date
+      const insertedTaskIds = tasksToInsert.map((task) => ({
+        recurring_definition_task_id: task.recurring_definition_task_id,
+        due_date: task.due_date,
+      }));
+
+      if (insertedTaskIds.length > 0) {
+        const { data: newTasks, error: fetchNewTasksError } =
+          await supabaseAdminClient
+            .from('tasks')
+            .select('id, recurring_definition_task_id, due_date')
+            .in(
+              'recurring_definition_task_id',
+              insertedTaskIds.map((t) => t.recurring_definition_task_id),
+            )
+            .in('due_date', insertedTaskIds.map((t) => t.due_date)); // Filter by due date as well
+
+        if (fetchNewTasksError) {
+          console.error(
+            'Error fetching newly created task IDs:',
+            fetchNewTasksError.message,
+          );
+          // Proceed without custom fields, but log error
+        } else if (newTasks && newTasks.length > 0) {
+          const definitionIds = definitions.map((d) => d.id);
+          const { data: definitionCustomFields, error: cfFetchError } =
+            await supabaseAdminClient
+              .from('custom_field_values')
+              .select('definition_id, entity_id, value')
+              .in('entity_id', definitionIds) // Fetch CFs for all processed definitions
+              .in(
+                'definition_id', // Ensure we only fetch CFs defined for tasks
+                (await supabaseAdminClient.from('custom_field_definitions')
+                  .select('id').eq('entity_type', 'task')).data?.map((d) =>
+                    d.id
+                  ) || [],
+              );
+
+          if (cfFetchError) {
+            console.error(
+              'Error fetching custom field values for definitions:',
+              cfFetchError.message,
+            );
+          } else if (definitionCustomFields) {
+            const customFieldValuesToInsert: any[] = [];
+            const newTaskMap = new Map(
+              newTasks.map((t) => [
+                `${t.recurring_definition_task_id}-${t.due_date}`,
+                t.id,
+              ]),
+            );
+
+            for (const cf of definitionCustomFields) {
+              // Find the corresponding new task ID
+              const definition = definitions.find((d) => d.id === cf.entity_id);
+              if (definition?.next_occurrence_date) {
+                const mapKey =
+                  `${cf.entity_id}-${definition.next_occurrence_date}`;
+                const newTaskId = newTaskMap.get(mapKey);
+                if (newTaskId) {
+                  customFieldValuesToInsert.push({
+                    definition_id: cf.definition_id,
+                    entity_id: newTaskId,
+                    value: cf.value,
+                  });
+                }
+              }
+            }
+
+            if (customFieldValuesToInsert.length > 0) {
+              console.log(
+                `Inserting ${customFieldValuesToInsert.length} custom field values for new tasks...`,
+              );
+              const { error: cfInsertError } = await supabaseAdminClient
+                .from('custom_field_values')
+                .insert(customFieldValuesToInsert);
+              if (cfInsertError) {
+                console.error(
+                  'Error inserting custom field values for new tasks:',
+                  cfInsertError.message,
+                );
+                // Log failure but don't stop the process
+                await logFailure(
+                  supabaseAdminClient,
+                  'generate-recurring-tasks-cf',
+                  customFieldValuesToInsert,
+                  cfInsertError,
+                );
+              }
+            }
+          }
+        }
+      }
+      // --- End Copy Custom Fields ---
     }
 
-    // 3. Bulk update definition next_occurrence_dates
+    // 4. Bulk update definition next_occurrence_dates
     if (definitionsToUpdate.length > 0) {
       console.log(
         `Updating ${definitionsToUpdate.length} definition next occurrence dates...`,

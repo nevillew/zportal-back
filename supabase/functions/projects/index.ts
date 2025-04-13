@@ -211,13 +211,37 @@ serve(async (req) => {
           if (!newProjectData.company_id) {
             errors.company_id = ['Company ID is required'];
           }
-          if (!newProjectData.status) errors.status = ['Status is required']; // TODO: Validate enum
-          if (!newProjectData.stage) errors.stage = ['Stage is required']; // TODO: Validate enum
+          const allowedStatuses = [
+            'Planning',
+            'Active',
+            'On Hold',
+            'Completed',
+            'Cancelled',
+          ];
+          const allowedStages = [
+            'Kick-off',
+            'Discovery',
+            'Build',
+            'UAT',
+            'Go Live',
+            'Post Go Live',
+          ];
+          if (!newProjectData.status) {
+            errors.status = ['Status is required'];
+          } else if (!allowedStatuses.includes(newProjectData.status)) {
+            errors.status = [
+              `Status must be one of: ${allowedStatuses.join(', ')}`,
+            ];
+          }
+          if (!newProjectData.stage) {
+            errors.stage = ['Stage is required'];
+          } else if (!allowedStages.includes(newProjectData.stage)) {
+            errors.stage = [`Stage must be one of: ${allowedStages.join(', ')}`];
+          }
 
           if (Object.keys(errors).length > 0) {
             return createValidationErrorResponse(errors);
           }
-          // TODO(validation): Add validation for status, stage enums against allowed values.
         } catch (e) {
           const errorMessage = e instanceof Error
             ? e.message
@@ -272,7 +296,82 @@ serve(async (req) => {
           throw insertError;
         }
 
-        // Handle custom fields provided in the request
+        // --- Template Instantiation Call ---
+        if (newProjectData.project_template_version_id) {
+          console.log(
+            `Project creation requested with template: ${newProjectData.project_template_version_id}. Calling RPC...`,
+          );
+          // Call the RPC function instead of just inserting the project record
+          const { data: instantiatedProjectId, error: rpcError } =
+            await supabaseClient
+              .rpc('instantiate_template_rpc', {
+                p_template_version_id:
+                  newProjectData.project_template_version_id,
+                p_target_company_id: newProjectData.company_id,
+                p_new_project_name: newProjectData.name,
+                p_placeholder_values: newProjectData.placeholder_values || {},
+                p_project_owner_id: newProjectData.project_owner_id,
+                p_requesting_user_id: user.id,
+              });
+
+          if (rpcError) {
+            console.error(
+              'Error calling instantiate_template_rpc:',
+              rpcError.message,
+            );
+            // Attempt to delete the potentially partially created project record if the RPC failed after insert? Difficult without transaction ID.
+            // Best to rely on RPC transactionality. Return specific errors based on RPC output.
+            if (rpcError.message.includes('does not have permission')) {
+              return createForbiddenResponse(rpcError.message);
+            }
+            if (
+              rpcError.message.includes('not found') ||
+              rpcError.code === 'PGRST116'
+            ) {
+              return createNotFoundResponse(rpcError.message);
+            }
+            return createInternalServerErrorResponse(
+              `Template instantiation failed: ${rpcError.message}`,
+            );
+          }
+
+          console.log(
+            `Successfully instantiated project ${instantiatedProjectId} from template by user ${user.id}`,
+          );
+          // Fetch the newly created project details to return
+          const { data: finalProject, error: fetchFinalError } =
+            await supabaseClient
+              .from('projects')
+              .select('*') // Select necessary fields
+              .eq('id', instantiatedProjectId)
+              .single();
+
+          if (fetchFinalError || !finalProject) {
+            console.error(
+              `Failed to fetch details for instantiated project ${instantiatedProjectId}:`,
+              fetchFinalError?.message,
+            );
+            // Return success but indicate data fetch failed
+            return new Response(
+              JSON.stringify({
+                message: 'Project created from template, but failed to fetch details.',
+                project_id: instantiatedProjectId,
+              }),
+              {
+                status: 201, // Still created
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              },
+            );
+          }
+
+          return new Response(JSON.stringify(finalProject), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 201, // Created
+          });
+        }
+        // --- End Template Instantiation Call ---
+
+        // --- Handle Custom Fields (Only if NOT using template instantiation above) ---
         if (
           newProjectData.custom_fields &&
           typeof newProjectData.custom_fields === 'object'
@@ -394,7 +493,35 @@ serve(async (req) => {
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
-          // TODO(validation): Add validation for status, stage enums if present in updateData against allowed values.
+          const errors: { [field: string]: string[] } = {};
+          const allowedStatuses = [
+            'Planning',
+            'Active',
+            'On Hold',
+            'Completed',
+            'Cancelled',
+          ];
+          const allowedStages = [
+            'Kick-off',
+            'Discovery',
+            'Build',
+            'UAT',
+            'Go Live',
+            'Post Go Live',
+          ];
+          if (
+            updateData.status && !allowedStatuses.includes(updateData.status)
+          ) {
+            errors.status = [
+              `Status must be one of: ${allowedStatuses.join(', ')}`,
+            ];
+          }
+          if (updateData.stage && !allowedStages.includes(updateData.stage)) {
+            errors.stage = [`Stage must be one of: ${allowedStages.join(', ')}`];
+          }
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
         } catch (e) {
           const errorMessage = e instanceof Error
             ? e.message
@@ -437,7 +564,12 @@ serve(async (req) => {
           if (updateError.code === 'PGRST204') { // PostgREST code for no rows updated/selected
             return createNotFoundResponse('Project not found or update failed');
           }
-          // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
+          if (updateError.code === '23503') { // Foreign key violation
+            return createBadRequestResponse(
+              `Invalid reference: ${updateError.details}`,
+            );
+          }
+          // Handle other specific DB errors
           throw updateError;
         }
 
@@ -586,10 +718,11 @@ serve(async (req) => {
           return createNotFoundResponse(
             `Endpoint for project ${projectId} not fully implemented`,
           );
+        } else {
+          // If no projectId, it's a general /projects request with an unhandled method
+          console.warn(`Method ${req.method} not allowed for /projects`);
+          return createMethodNotAllowedResponse();
         }
-        // If no projectId, it's a general /projects request with an unhandled method
-        console.warn(`Method ${req.method} not allowed for /projects`);
-        return createMethodNotAllowedResponse();
     }
   } catch (error) {
     // Use the standardized internal server error response

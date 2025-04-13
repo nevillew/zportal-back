@@ -146,21 +146,99 @@ serve(async (req) => {
       case 'POST': {
         // POST /custom-field-definitions (Create)
         console.log('Creating new definition');
-        let newDefinitionData;
+        let newDefinitionData: any;
+        const errors: ValidationErrors = {};
         try {
           newDefinitionData = await req.json();
-          // TODO(validation): Add more robust validation: check entity_type/field_type against enums, validate options format for 'select' type, validate validation_rules JSON structure.
-          if (
-            !newDefinitionData.name || !newDefinitionData.label ||
-            !newDefinitionData.entity_type || !newDefinitionData.field_type
-          ) {
-            throw new Error(
-              'Missing required fields: name, label, entity_type, field_type',
+
+          // --- Validation ---
+          if (!newDefinitionData.name) errors.name = ['Name is required'];
+          if (!newDefinitionData.label) errors.label = ['Label is required'];
+          if (!newDefinitionData.entity_type) {
+            errors.entity_type = ['Entity type is required'];
+          } else {
+            validateEnum(
+              newDefinitionData.entity_type,
+              ['company', 'project', 'task', 'user', 'document'],
+              'entity_type',
+              errors,
             );
+          }
+          if (!newDefinitionData.field_type) {
+            errors.field_type = ['Field type is required'];
+          } else {
+            validateEnum(
+              newDefinitionData.field_type,
+              [
+                'text',
+                'textarea',
+                'number',
+                'date',
+                'boolean',
+                'select',
+                'multi_select',
+                'url',
+              ],
+              'field_type',
+              errors,
+            );
+          }
+
+          // Validate options for select types
+          if (
+            ['select', 'multi_select'].includes(newDefinitionData.field_type)
+          ) {
+            if (
+              !newDefinitionData.options ||
+              !Array.isArray(newDefinitionData.options) ||
+              newDefinitionData.options.length === 0
+            ) {
+              errors.options = [
+                'Options array is required for select/multi_select types.',
+              ];
+            } else {
+              newDefinitionData.options.forEach((opt: any, index: number) => {
+                if (
+                  typeof opt !== 'object' || opt === null ||
+                  typeof opt.value !== 'string' || opt.value.trim() === '' ||
+                  typeof opt.label !== 'string' || opt.label.trim() === ''
+                ) {
+                  errors.options = errors.options || [];
+                  errors.options.push(
+                    `Invalid option at index ${index}: Must be an object with non-empty string 'value' and 'label'.`,
+                  );
+                }
+              });
+            }
+          }
+
+          // Validate validation_rules structure (basic example)
+          if (newDefinitionData.validation_rules) {
+            try {
+              const rules = typeof newDefinitionData.validation_rules ===
+                  'string'
+                ? JSON.parse(newDefinitionData.validation_rules)
+                : newDefinitionData.validation_rules;
+              if (typeof rules !== 'object' || rules === null) {
+                throw new Error('Must be a JSON object.');
+              }
+              // Add more specific rule checks here (e.g., required is boolean, minLength is number)
+            } catch (jsonError) {
+              errors.validation_rules = [
+                `Invalid JSON format: ${jsonError.message}`,
+              ];
+            }
+          }
+          // --- End Validation ---
+
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
           }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          return createBadRequestResponse(errorMessage);
+          return createBadRequestResponse(
+            `Error parsing request body: ${errorMessage}`,
+          );
         }
 
         const { data, error } = await supabaseClient
@@ -222,15 +300,86 @@ serve(async (req) => {
           return createBadRequestResponse('Definition ID missing in URL');
         }
         console.log(`Updating definition ${definitionId}`);
-        let updateData;
+        let updateData: any;
+        const errors: ValidationErrors = {};
         try {
           updateData = await req.json();
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
+
+          // --- Validation ---
+          if (updateData.field_type !== undefined) {
+            validateEnum(
+              updateData.field_type,
+              [
+                'text',
+                'textarea',
+                'number',
+                'date',
+                'boolean',
+                'select',
+                'multi_select',
+                'url',
+              ],
+              'field_type',
+              errors,
+            );
+          }
+          // Validate options if field_type is select/multi_select (or if options are provided)
+          if (
+            updateData.options !== undefined &&
+            (updateData.field_type === 'select' ||
+              updateData.field_type === 'multi_select')
+          ) {
+            if (
+              !Array.isArray(updateData.options) ||
+              updateData.options.length === 0
+            ) {
+              errors.options = [
+                'Options array cannot be empty for select/multi_select types.',
+              ];
+            } else {
+              updateData.options.forEach((opt: any, index: number) => {
+                if (
+                  typeof opt !== 'object' || opt === null ||
+                  typeof opt.value !== 'string' || opt.value.trim() === '' ||
+                  typeof opt.label !== 'string' || opt.label.trim() === ''
+                ) {
+                  errors.options = errors.options || [];
+                  errors.options.push(
+                    `Invalid option at index ${index}: Must be an object with non-empty string 'value' and 'label'.`,
+                  );
+                }
+              });
+            }
+          }
+          // Validate validation_rules structure
+          if (updateData.validation_rules !== undefined) {
+            try {
+              const rules = typeof updateData.validation_rules === 'string'
+                ? JSON.parse(updateData.validation_rules)
+                : updateData.validation_rules;
+              if (typeof rules !== 'object' || rules === null) {
+                throw new Error('Must be a JSON object.');
+              }
+              // Add more specific rule checks here
+            } catch (jsonError) {
+              errors.validation_rules = [
+                `Invalid JSON format: ${jsonError.message}`,
+              ];
+            }
+          }
+          // --- End Validation ---
+
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-          return createBadRequestResponse(errorMessage);
+          return createBadRequestResponse(
+            `Error parsing request body: ${errorMessage}`,
+          );
         }
 
         // Prepare allowed update fields (prevent updating ID, name, entity_type)

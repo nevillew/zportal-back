@@ -18,6 +18,40 @@ import {
 
 console.log('Companies function started');
 
+// --- Helper: Get Secret from Vault (Placeholder) ---
+// Assumes an RPC function 'get_decrypted_secret' exists
+async function getSecret(
+  client: _SupabaseClient,
+  secretName: string,
+): Promise<string | null> {
+  console.log(`Attempting to fetch secret via RPC: ${secretName}`);
+  try {
+    const { data: secretValue, error: rpcError } = await client.rpc(
+      'get_decrypted_secret',
+      { p_secret_name: secretName },
+    );
+    if (rpcError) {
+      console.error(
+        `Error fetching secret ${secretName} via RPC:`,
+        rpcError.message,
+      );
+      return null;
+    }
+    if (!secretValue) {
+      console.warn(`Secret ${secretName} not found via RPC.`);
+      return null;
+    }
+    console.log(`Successfully retrieved secret via RPC: ${secretName}`);
+    return secretValue as string;
+  } catch (error) {
+    console.error(
+      `Unexpected error fetching secret ${secretName}:`,
+      error instanceof Error ? error.message : error,
+    );
+    return null;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -342,7 +376,67 @@ serve(async (req) => {
             throw inviteError;
           }
 
-          // TODO(email): Send invitation email with the token/link (using Resend or similar).
+          // Send invitation email
+          try {
+            const internalAuthSecret = await getSecret(
+              supabaseClient,
+              'INTERNAL_FUNCTION_SECRET',
+            );
+            if (!internalAuthSecret) {
+              throw new Error(
+                'Internal function secret not configured for notifications.',
+              );
+            }
+            const appUrl = Deno.env.get('APP_BASE_URL') ||
+              'http://localhost:3000'; // Get base URL from env or default
+            const inviteLink = `${appUrl}/accept-invitation?token=${token}`;
+            const notificationPayload = {
+              recipients: [{ email: inviteData.email }],
+              type: 'email',
+              subject: `You're invited to join ZPortal`,
+              message:
+                `You have been invited to join the company on ZPortal. Click the link to accept: ${inviteLink}`,
+              context: {
+                trigger: 'user_invitation',
+                invitation_id: invitation.id,
+                company_id: companyId,
+                invited_by_user_id: user.id,
+              },
+            };
+            const functionUrl =
+              `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+
+            const response = await fetch(functionUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${internalAuthSecret}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(notificationPayload),
+            });
+
+            if (!response.ok) {
+              console.error(
+                `Failed to send invitation email via function: ${response.status} ${await response
+                  .text()}`,
+              );
+              // Log failure but don't fail the main request
+              // await logFailure(...); // Add logFailure helper if needed here
+            } else {
+              console.log(
+                `Invitation email request sent successfully for ${inviteData.email}.`,
+              );
+            }
+          } catch (emailError) {
+            console.error(
+              `Error sending invitation email for ${inviteData.email}:`,
+              emailError.message,
+            );
+            // Log failure but don't fail the main request
+            // await logFailure(...);
+          }
+          // --- End Email Sending ---
+
           console.log(
             `Successfully created invitation ${invitation.id} for ${inviteData.email} to company ${companyId}`,
           );

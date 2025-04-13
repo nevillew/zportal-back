@@ -152,12 +152,23 @@ serve(async (req) => {
           if (!newSectionData.project_id) {
             errors.project_id = ['Project ID is required'];
           }
-          if (!newSectionData.type) errors.type = ['Section type is required']; // TODO(validation): Validate type enum against allowed values.
+          const allowedTypes = [
+            'INFO',
+            'BUILD',
+            'UAT',
+            'GO_LIVE',
+            'PLANNING',
+            'OTHER',
+          ];
+          if (!newSectionData.type) {
+            errors.type = ['Section type is required'];
+          } else if (!allowedTypes.includes(newSectionData.type)) {
+            errors.type = [`Type must be one of: ${allowedTypes.join(', ')}`];
+          }
 
           if (Object.keys(errors).length > 0) {
             return createValidationErrorResponse(errors);
           }
-          // TODO(validation): Validate type enum (already mentioned above, can remove this duplicate).
         } catch (e) {
           const errorMessage = e instanceof Error
             ? e.message
@@ -291,7 +302,21 @@ serve(async (req) => {
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
-          // TODO(validation): Validate type enum if present in updateData against allowed values.
+          const errors: ValidationErrors = {};
+          const allowedTypes = [
+            'INFO',
+            'BUILD',
+            'UAT',
+            'GO_LIVE',
+            'PLANNING',
+            'OTHER',
+          ];
+          if (updateData.type && !allowedTypes.includes(updateData.type)) {
+            errors.type = [`Type must be one of: ${allowedTypes.join(', ')}`];
+          }
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
         } catch (e) {
           const errorMessage = e instanceof Error
             ? e.message
@@ -306,8 +331,7 @@ serve(async (req) => {
           status: updateData.status,
           is_public: updateData.is_public,
           order: updateData.order,
-          // TODO(cleanup): percent_complete should be removed from allowedUpdates once the trigger (Step 1.5 in build.md) is confirmed working reliably.
-          percent_complete: updateData.percent_complete,
+          // percent_complete is handled by trigger
           section_template_id: updateData.section_template_id,
           // project_id should not be changed
         };
@@ -337,7 +361,12 @@ serve(async (req) => {
           if (updateError.code === 'PGRST204') { // No rows updated/selected
             return createNotFoundResponse('Section not found or update failed');
           }
-          // TODO(db-error): Handle other specific DB errors with appropriate 4xx status codes.
+          if (updateError.code === '23503') { // Foreign key violation
+            return createBadRequestResponse(
+              `Invalid reference: ${updateError.details}`,
+            );
+          }
+          // Handle other specific DB errors
           throw updateError;
         }
 
@@ -411,7 +440,15 @@ serve(async (req) => {
             `Error deleting section ${sectionId}:`,
             deleteError.message,
           );
-          // TODO(db-error): Handle specific DB errors (e.g., restricted delete due to FK dependencies from tasks) with appropriate 4xx status codes (e.g., 409 Conflict).
+          if (deleteError.code === 'PGRST204') { // Not Found
+            return createNotFoundResponse('Section not found or already deleted');
+          }
+          if (deleteError.code === '23503') { // Foreign key violation (tasks exist)
+            return createConflictResponse(
+              'Cannot delete section with existing tasks.',
+            );
+          }
+          // Handle other specific DB errors
           throw deleteError;
         }
 

@@ -195,8 +195,20 @@ serve(async (req) => {
         try {
           body = await req.json();
           const errors: ValidationErrors = {};
+          const allowedTypes = [
+            'solution',
+            'support',
+            'guide',
+            'project_plan',
+            'SOW',
+            'kb_article',
+          ];
           if (!body.name) errors.name = ['Name is required'];
-          if (!body.type) errors.type = ['Type is required']; // TODO: Validate enum
+          if (!body.type) {
+            errors.type = ['Type is required'];
+          } else if (!allowedTypes.includes(body.type)) {
+            errors.type = [`Type must be one of: ${allowedTypes.join(', ')}`];
+          }
           // Validate scope: Ensure only one of company_id or project_id is set, or both are null
           if (body.company_id && body.project_id) {
             errors.scope = [
@@ -261,7 +273,33 @@ serve(async (req) => {
           if (Object.keys(body).length === 0) {
             throw new Error('No update data provided');
           }
-          // TODO: Add validation for fields like type, status enums
+          const errors: ValidationErrors = {};
+          const allowedTypes = [
+            'solution',
+            'support',
+            'guide',
+            'project_plan',
+            'SOW',
+            'kb_article',
+          ];
+          const allowedStatuses = [
+            'Draft',
+            'In Review',
+            'Approved',
+            'Rejected',
+            'Archived',
+          ];
+          if (body.type && !allowedTypes.includes(body.type)) {
+            errors.type = [`Type must be one of: ${allowedTypes.join(', ')}`];
+          }
+          if (body.status && !allowedStatuses.includes(body.status)) {
+            errors.status = [
+              `Status must be one of: ${allowedStatuses.join(', ')}`,
+            ];
+          }
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
         } catch (e) {
           return createBadRequestResponse(
             e instanceof Error ? e.message : 'Invalid JSON body',

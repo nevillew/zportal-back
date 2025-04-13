@@ -234,7 +234,16 @@ serve(async (req) => {
             `Error inserting comment for task ${taskId}:`,
             insertError.message,
           );
-          // TODO(db-error): Handle specific DB errors (e.g., FK violation on task_id or parent_comment_id) with appropriate 4xx status codes.
+          if (insertError.code === '23503') { // Foreign key violation
+            const constraint = insertError.message.includes('task_id')
+              ? 'task_id'
+              : insertError.message.includes('parent_comment_id')
+              ? 'parent_comment_id'
+              : 'unknown foreign key';
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
+            );
+          }
           throw new Error(`Failed to create comment: ${insertError.message}`);
         }
         // --- End Insert Comment ---
@@ -319,7 +328,10 @@ serve(async (req) => {
             `Error updating comment ${commentId}:`,
             updateError.message,
           );
-          // TODO(db-error): Handle specific DB errors with appropriate 4xx status codes.
+          if (updateError.code === 'PGRST204') { // Not Found
+            return createNotFoundResponse('Comment not found or update failed');
+          }
+          // Handle other specific DB errors
           throw new Error(`Failed to update comment: ${updateError.message}`);
         }
         // --- End Update Comment ---
@@ -371,7 +383,33 @@ serve(async (req) => {
             'You can only delete your own comments',
           );
         }
-        // --- End Ownership Check ---
+
+        // --- Fetch user profile for staff check ---
+        const { data: profile, error: profileError } = await supabaseClient
+          .from('user_profiles')
+          .select('is_staff')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profileError) {
+          console.error(
+            `Error fetching user profile for delete check: ${profileError.message}`,
+          );
+          // Proceed cautiously, relying on ownership check
+        }
+        const isStaffUser = profile?.is_staff ?? false;
+        // --- End Fetch User Profile ---
+
+        // --- Final Permission Check (Owner or Staff) ---
+        if (existingComment.user_id !== user.id && !isStaffUser) {
+          console.warn(
+            `User ${user.id} (not staff) attempted to delete comment ${commentId} owned by ${existingComment.user_id}`,
+          );
+          return createForbiddenResponse(
+            'You can only delete your own comments.',
+          );
+        }
+        // --- End Final Permission Check ---
 
         // --- Delete Comment ---
         const { error: deleteError } = await supabaseClient
@@ -384,7 +422,17 @@ serve(async (req) => {
             `Error deleting comment ${commentId}:`,
             deleteError.message,
           );
-          // TODO(db-error): Handle specific DB errors (e.g., if deleting a parent comment with replies needs special handling) with appropriate 4xx status codes.
+          if (deleteError.code === 'PGRST204') { // Not Found
+            return createNotFoundResponse(
+              'Comment not found or already deleted',
+            );
+          }
+          if (deleteError.code === '23503') { // Foreign key violation (e.g., replies reference this comment)
+            return createConflictResponse(
+              'Cannot delete comment with existing replies.',
+            );
+          }
+          // Handle other specific DB errors
           throw new Error(`Failed to delete comment: ${deleteError.message}`);
         }
         // --- End Delete Comment ---

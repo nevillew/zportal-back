@@ -72,6 +72,42 @@ function getValueFromPath(obj: any, path: string | undefined): any {
   }, obj);
 }
 
+// --- Helper: Log Failure ---
+async function logFailure(
+  client: SupabaseClient,
+  jobName: string,
+  payload: any | null,
+  error: Error,
+) {
+  console.error(`Logging failure for job ${jobName}:`, error.message);
+  try {
+    const { error: logInsertError } = await client
+      .from('background_job_failures')
+      .insert({
+        job_name: jobName,
+        payload: payload ? JSON.parse(JSON.stringify(payload)) : null,
+        error_message: error.message,
+        stack_trace: error.stack,
+        status: 'logged',
+      });
+    if (logInsertError) {
+      console.error(
+        '!!! Failed to log failure to database:',
+        logInsertError.message,
+      );
+    } else {
+      console.log(`Failure logged successfully for job ${jobName}.`);
+    }
+  } catch (e) {
+    const loggingErrorMessage = e instanceof Error
+      ? e.message
+      : 'Unknown error during logging';
+    console.error(
+      `!!! CRITICAL: Error occurred while trying to log job failure: ${loggingErrorMessage}`,
+    );
+  }
+}
+
 // --- Main Handler ---
 serve(async (req) => {
   // Basic check for POST method
@@ -298,7 +334,12 @@ serve(async (req) => {
       : 'Unknown internal server error during JIT processing';
     console.error('SSO JIT Processing Error:', processErrorMessage, error);
     // Log failure but return original claims to avoid blocking login entirely
-    // TODO: Consider logging to background_job_failures table
+    await logFailure(
+      supabaseAdminClient,
+      'sso-jit-provisioning',
+      payload, // Log the incoming hook payload
+      error instanceof Error ? error : new Error(String(error)),
+    );
     return new Response(JSON.stringify({ custom_claims: {} }), { // Return empty custom claims on error
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200, // Must return 200 OK for the hook

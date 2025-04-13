@@ -13,6 +13,7 @@ import {
   createUnauthorizedResponse,
   createValidationErrorResponse,
 } from '../_shared/validation.ts';
+import { validateEmail } from '../_shared/validation.ts'; // Import email validator
 
 console.log('Send Notification function started');
 
@@ -32,41 +33,71 @@ interface NotificationPayload {
 }
 
 // --- Helper: Get Secret from Vault ---
-function getSecret( // Removed async
-  _client: SupabaseClient, // Prefix unused parameter
+async function getSecret(
+  client: SupabaseClient,
   secretName: string,
-): string | null { // Return type changed to string | null
-  // Note: Direct access to vault.secrets requires elevated privileges.
-  // This function assumes it's called by a client with appropriate rights (e.g., service_role).
-  // Or, it needs to be adapted to call an RPC function that securely retrieves the secret.
-  // For simplicity in this example, we assume direct access is possible (e.g., via service_role client).
-  console.log(`Attempting to fetch secret: ${secretName}`);
+): Promise<string | null> {
+  console.log(`Attempting to fetch secret via RPC: ${secretName}`);
   try {
-    // This is a placeholder for the actual Vault access method.
-    // Supabase client library doesn't directly expose Vault access.
-    // You might need an RPC function or a different approach depending on your security model.
-    // Example using a hypothetical RPC:
-    /*
-    const { data, error } = await client.rpc('get_decrypted_secret', { secret_name: secretName });
-    if (error) throw error;
-    return data;
-    */
-    // Using environment variables as a fallback/alternative for local dev or simpler setups:
-    const secretValue = Deno.env.get(secretName);
-    if (!secretValue) {
-      console.warn(`Secret ${secretName} not found in environment variables.`);
-      // In a real scenario, you'd fetch from Vault here.
-      // Returning null indicates the secret wasn't found.
+    const { data: secretValue, error: rpcError } = await client.rpc(
+      'get_decrypted_secret',
+      { p_secret_name: secretName },
+    );
+    if (rpcError) {
+      console.error(
+        `Error fetching secret ${secretName} via RPC:`,
+        rpcError.message,
+      );
       return null;
     }
-    console.log(`Successfully retrieved secret: ${secretName}`);
-    return secretValue;
+    if (!secretValue) {
+      console.warn(`Secret ${secretName} not found via RPC.`);
+      return null;
+    }
+    console.log(`Successfully retrieved secret via RPC: ${secretName}`);
+    return secretValue as string;
   } catch (error) {
     console.error(
-      `Error fetching secret ${secretName}:`,
+      `Unexpected error fetching secret ${secretName}:`,
       error instanceof Error ? error.message : error,
     );
-    return null; // Indicate failure to retrieve
+    return null;
+  }
+}
+
+// --- Helper: Log Failure ---
+async function logFailure(
+  client: SupabaseClient,
+  jobName: string,
+  payload: any | null,
+  error: Error,
+) {
+  console.error(`Logging failure for job ${jobName}:`, error.message);
+  try {
+    const { error: logInsertError } = await client
+      .from('background_job_failures')
+      .insert({
+        job_name: jobName,
+        payload: payload ? JSON.parse(JSON.stringify(payload)) : null,
+        error_message: error.message,
+        stack_trace: error.stack,
+        status: 'logged',
+      });
+    if (logInsertError) {
+      console.error(
+        '!!! Failed to log failure to database:',
+        logInsertError.message,
+      );
+    } else {
+      console.log(`Failure logged successfully for job ${jobName}.`);
+    }
+  } catch (e) {
+    const loggingErrorMessage = e instanceof Error
+      ? e.message
+      : 'Unknown error during logging';
+    console.error(
+      `!!! CRITICAL: Error occurred while trying to log job failure: ${loggingErrorMessage}`,
+    );
   }
 }
 
@@ -148,7 +179,21 @@ serve(async (req) => {
     ) {
       errors.subject = ['Subject is required for email notifications'];
     }
-    // TODO: Add validation for recipient details (e.g., valid email format)
+    // Validate recipient details
+    payload.recipients.forEach((recipient, index) => {
+      if (
+        (payload.type === 'email' || payload.type === 'both') &&
+        recipient.email
+      ) {
+        const emailErrors: ValidationErrors = {};
+        validateEmail(recipient.email, `recipients[${index}].email`, emailErrors);
+        if (Object.keys(emailErrors).length > 0) {
+          errors[`recipients[${index}].email`] =
+            emailErrors[`recipients[${index}].email`];
+        }
+      }
+      // Add similar validation for Slack IDs/Channels if needed
+    });
 
     if (Object.keys(errors).length > 0) {
       return createValidationErrorResponse(errors);
@@ -229,7 +274,12 @@ serve(async (req) => {
           error instanceof Error ? error.message : error,
         );
         results.email.failed++;
-        // TODO: Log detailed failure to background_job_failures or similar
+        await logFailure(
+          supabaseAdminClient,
+          'send-notification-email',
+          { recipient: recipient.email, subject: payload.subject },
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
     }
 
@@ -276,7 +326,12 @@ serve(async (req) => {
           error instanceof Error ? error.message : error,
         );
         results.slack.failed++;
-        // TODO: Log detailed failure
+        await logFailure(
+          supabaseAdminClient,
+          'send-notification-slack',
+          { recipient: target },
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
     }
   }

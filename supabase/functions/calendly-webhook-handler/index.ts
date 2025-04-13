@@ -11,42 +11,55 @@ import {
   createMethodNotAllowedResponse,
   createUnauthorizedResponse,
 } from '../_shared/validation.ts';
-// Note: crypto is available globally in Deno environment
-// import { timingSafeEqual } from 'https://deno.land/std@0.177.0/crypto/timing_safe_equal.ts';
-// import { encodeHex } from 'https://deno.land/std@0.177.0/encoding/hex.ts';
+import { timingSafeEqual } from 'https://deno.land/std@0.177.0/crypto/timing_safe_equal.ts';
+import { encodeHex } from 'https://deno.land/std@0.177.0/encoding/hex.ts';
 
 console.log('Calendly Webhook Handler function started');
 
 // --- Helper: Get Secret from Vault ---
-// (Assuming this helper exists or is added, similar to send-notification function)
-function getSecret( // Removed async
-  _client: SupabaseClient, // Prefix unused parameter
+async function getSecret(
+  client: SupabaseClient,
   secretName: string,
-): string | null { // Return type changed to string | null
-  console.log(`Attempting to fetch secret: ${secretName}`);
+): Promise<string | null> {
+  console.log(`Attempting to fetch secret via RPC: ${secretName}`);
   try {
-    const secretValue = Deno.env.get(secretName); // Using env var as placeholder/fallback
+    // Use the RPC function to fetch the secret
+    const { data: secretValue, error: rpcError } = await client.rpc(
+      'get_decrypted_secret',
+      { p_secret_name: secretName },
+    );
+
+    if (rpcError) {
+      console.error(
+        `Error fetching secret ${secretName} via RPC:`,
+        rpcError.message,
+      );
+      return null; // Indicate failure
+    }
+
     if (!secretValue) {
-      console.warn(`Secret ${secretName} not found in environment variables.`);
-      // TODO: Implement actual Vault fetching logic here using RPC or other secure method
+      console.warn(`Secret ${secretName} not found via RPC.`);
       return null;
     }
-    console.log(`Successfully retrieved secret: ${secretName}`);
-    return secretValue;
+
+    console.log(`Successfully retrieved secret via RPC: ${secretName}`);
+    return secretValue as string;
   } catch (error) {
-    console.error(`Error fetching secret ${secretName}:`, error);
+    console.error(
+      `Unexpected error fetching secret ${secretName}:`,
+      error instanceof Error ? error.message : error,
+    );
     return null;
   }
 }
 
-// --- Helper: Verify Calendly Signature (Placeholder) ---
+// --- Helper: Verify Calendly Signature ---
 // See: https://developer.calendly.com/webhook-signatures
-// This requires the 'CALENDLY_WEBHOOK_SECRET' from your Calendly webhook settings stored in Vault/env.
-function verifySignature( // Removed async
-  _secret: string, // Prefix unused parameter
+async function verifySignature(
+  secret: string,
   request: Request,
-  _rawBody: string, // Prefix unused parameter
-): boolean { // Return type changed to boolean
+  rawBody: string,
+): Promise<boolean> {
   const signatureHeader = request.headers.get('Calendly-Webhook-Signature');
   if (!signatureHeader) {
     console.warn('Missing Calendly-Webhook-Signature header');
@@ -64,25 +77,82 @@ function verifySignature( // Removed async
   }
 
   const _timestamp = timestampPart.split('=')[1]; // Prefix unused variable
+  const timestamp = timestampPart.split('=')[1];
   const signature = signaturePart.split('=')[1];
 
-  // --- TODO: Implement actual HMAC-SHA256 verification ---
-  // 1. Prepare the signed payload string: timestamp + '.' + rawBody
-  // 2. Calculate the HMAC-SHA256 hash using the webhook secret
-  // 3. Compare the calculated hash (hex encoded) with the provided signature using timingSafeEqual
-  console.warn(
-    'TODO: Implement actual Calendly webhook signature verification using crypto API.',
-  );
-  // Placeholder - always returns true for now, replace with actual verification
-  const calculatedSignature = signature; // Replace with actual calculation
-  // const encoder = new TextEncoder();
-  // const keyData = encoder.encode(secret);
-  // const messageData = encoder.encode(`${timestamp}.${rawBody}`);
-  // const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  // const calculatedDigest = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-  // const calculatedSignature = encodeHex(calculatedDigest);
-  // return timingSafeEqual(encoder.encode(calculatedSignature), encoder.encode(signature));
-  return calculatedSignature === signature; // Placeholder comparison
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(`${timestamp}.${rawBody}`);
+
+    // Import the secret key
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false, // not extractable
+      ['sign'],
+    );
+
+    // Sign the message
+    const calculatedDigest = await crypto.subtle.sign(
+      'HMAC',
+      cryptoKey,
+      messageData,
+    );
+
+    // Encode the digest as a hex string
+    const calculatedSignature = encodeHex(calculatedDigest);
+
+    // Compare using timingSafeEqual
+    const sig1 = encoder.encode(calculatedSignature);
+    const sig2 = encoder.encode(signature);
+
+    if (sig1.length !== sig2.length) {
+      return false;
+    }
+
+    return timingSafeEqual(sig1, sig2);
+  } catch (error) {
+    console.error('Error during signature verification:', error);
+    return false;
+  }
+}
+
+// --- Helper: Log Failure ---
+async function logFailure(
+  client: SupabaseClient,
+  jobName: string,
+  payload: any | null,
+  error: Error,
+) {
+  console.error(`Logging failure for job ${jobName}:`, error.message);
+  try {
+    const { error: logInsertError } = await client
+      .from('background_job_failures')
+      .insert({
+        job_name: jobName,
+        payload: payload ? JSON.parse(JSON.stringify(payload)) : null,
+        error_message: error.message,
+        stack_trace: error.stack,
+        status: 'logged',
+      });
+    if (logInsertError) {
+      console.error(
+        '!!! Failed to log failure to database:',
+        logInsertError.message,
+      );
+    } else {
+      console.log(`Failure logged successfully for job ${jobName}.`);
+    }
+  } catch (e) {
+    const loggingErrorMessage = e instanceof Error
+      ? e.message
+      : 'Unknown error during logging';
+    console.error(
+      `!!! CRITICAL: Error occurred while trying to log job failure: ${loggingErrorMessage}`,
+    );
+  }
 }
 
 // --- Main Handler ---
@@ -196,14 +266,36 @@ serve(async (req) => {
       // This relies on custom questions being configured in Calendly
       const projectIdAnswer = questions.find((q: any) =>
         q.question?.toLowerCase().includes('project id')
-      )?.answer;
+      )?.answer?.trim(); // Trim whitespace
       const companyIdAnswer = questions.find((q: any) =>
         q.question?.toLowerCase().includes('company id')
-      )?.answer;
-      // TODO: Add validation/parsing for these IDs if needed
+      )?.answer?.trim(); // Trim whitespace
 
-      const projectId = projectIdAnswer || null;
-      let companyId = companyIdAnswer || null;
+      // UUID Validation Regex
+      const uuidRegex =
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+      let projectId: string | null = null;
+      if (projectIdAnswer && uuidRegex.test(projectIdAnswer)) {
+        projectId = projectIdAnswer;
+      } else if (projectIdAnswer) {
+        console.warn(
+          `Invalid Project ID format received from Calendly: ${projectIdAnswer}`,
+        );
+        // Optionally return bad request or proceed without project ID
+        // return createBadRequestResponse(`Invalid Project ID format: ${projectIdAnswer}`);
+      }
+
+      let companyId: string | null = null;
+      if (companyIdAnswer && uuidRegex.test(companyIdAnswer)) {
+        companyId = companyIdAnswer;
+      } else if (companyIdAnswer) {
+        console.warn(
+          `Invalid Company ID format received from Calendly: ${companyIdAnswer}`,
+        );
+        // Optionally return bad request or proceed without company ID
+        // return createBadRequestResponse(`Invalid Company ID format: ${companyIdAnswer}`);
+      }
 
       // If project ID is present, derive company ID from it
       if (projectId && !companyId) {

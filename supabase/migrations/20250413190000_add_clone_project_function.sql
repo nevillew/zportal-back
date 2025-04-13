@@ -230,11 +230,64 @@ BEGIN
     -- 6. Clone Project-Scoped Documents (Optional - depends on requirements)
     --    This assumes documents have a project_id FK.
     --    Requires mapping old doc ID to new doc ID if pages/comments are also cloned.
-    -- INSERT INTO public.documents (...) SELECT ... FROM public.documents WHERE project_id = source_project_id;
-    -- INSERT INTO public.pages (...) SELECT ... FROM public.pages WHERE document_id IN (...old doc ids...);
-    -- INSERT INTO public.document_comments (...) SELECT ... FROM public.document_comments WHERE page_id IN (...old page ids...);
+    RAISE NOTICE 'Cloning project-scoped documents...';
+    DECLARE
+        doc_id_map jsonb := '{}'::jsonb;
+        page_id_map jsonb := '{}'::jsonb;
+        old_doc_id uuid;
+        new_doc_id uuid;
+        old_page_id uuid;
+        new_page_id uuid;
+    BEGIN
+        -- Clone documents and build doc_id_map
+        WITH cloned_docs AS (
+            INSERT INTO public.documents (
+                company_id, project_id, name, type, "order", version, status, created_by_user_id
+            )
+            SELECT
+                NULL, new_project_id, name, type, "order", 1, 'Draft', created_by_user_id -- Reset version/status
+            FROM public.documents
+            WHERE project_id = source_project_id -- Only clone project-scoped docs
+            RETURNING id as new_doc_id, id as old_doc_id_placeholder -- Placeholder for old ID
+        )
+        SELECT jsonb_object_agg(src.id::text, cd.new_doc_id)
+        INTO doc_id_map
+        FROM public.documents src
+        JOIN cloned_docs cd ON src.name = (SELECT name FROM public.documents WHERE id = cd.new_doc_id) -- Match based on name/order/type? Risky.
+             AND src."order" = (SELECT "order" FROM public.documents WHERE id = cd.new_doc_id)
+             AND src.type = (SELECT type FROM public.documents WHERE id = cd.new_doc_id)
+        WHERE src.project_id = source_project_id;
+        RAISE NOTICE ' Document ID Map: %', doc_id_map;
 
-    -- 7. Clone Custom Field Values (Project, Sections, Tasks)
+        -- Clone pages and build page_id_map
+        WITH cloned_pages AS (
+            INSERT INTO public.pages (document_id, name, "order", content)
+            SELECT
+                (doc_id_map->>(p.document_id::text))::uuid, name, "order", content
+            FROM public.pages p
+            WHERE doc_id_map ? p.document_id::text -- Only clone pages whose documents were cloned
+            RETURNING id as new_page_id, id as old_page_id_placeholder
+        )
+        SELECT jsonb_object_agg(src.id::text, cp.new_page_id)
+        INTO page_id_map
+        FROM public.pages src
+        JOIN cloned_pages cp ON src.name = (SELECT name FROM public.pages WHERE id = cp.new_page_id) -- Match based on name/order? Risky.
+             AND src."order" = (SELECT "order" FROM public.pages WHERE id = cp.new_page_id)
+        WHERE doc_id_map ? src.document_id::text;
+        RAISE NOTICE ' Page ID Map: %', page_id_map;
+
+        -- Clone document comments (basic clone, doesn't handle parent_comment_id mapping yet)
+        INSERT INTO public.document_comments (page_id, user_id, content, is_internal)
+        SELECT
+            (page_id_map->>(dc.page_id::text))::uuid, user_id, content, is_internal
+        FROM public.document_comments dc
+        WHERE page_id_map ? dc.page_id::text;
+        -- TODO: Update parent_comment_id similar to how task dependencies were handled if needed.
+
+    END;
+    RAISE NOTICE 'Finished cloning documents.';
+
+    -- 7. Clone Custom Field Values (Project, Sections, Tasks, Documents)
     RAISE NOTICE 'Cloning custom field values...';
     -- Clone Project custom fields
     INSERT INTO public.custom_field_values (definition_id, entity_id, value)
@@ -264,6 +317,17 @@ BEGIN
     JOIN public.custom_field_definitions cfd ON cfv.definition_id = cfd.id
     WHERE cfd.entity_type = 'task'
       AND task_id_map ? cfv.entity_id::text; -- Ensure the old task ID was mapped
+
+    -- Clone Document custom fields
+    INSERT INTO public.custom_field_values (definition_id, entity_id, value)
+    SELECT
+        cfv.definition_id,
+        (doc_id_map->>(cfv.entity_id::text))::uuid, -- Map to new document ID
+        cfv.value
+    FROM public.custom_field_values cfv
+    JOIN public.custom_field_definitions cfd ON cfv.definition_id = cfd.id
+    WHERE cfd.entity_type = 'document'
+      AND doc_id_map ? cfv.entity_id::text; -- Ensure the old document ID was mapped
 
     RAISE NOTICE 'Project cloning complete. New project ID: %', new_project_id;
     RETURN new_project_id;
