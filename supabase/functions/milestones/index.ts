@@ -15,7 +15,6 @@ import {
 
 console.log('Milestones function started');
 
-
 // --- Helper: Get Secret from Vault ---
 // (Assuming this helper exists or is added, similar to send-notification function)
 async function getSecret(
@@ -58,16 +57,22 @@ async function logFailure(
         status: 'logged',
       });
     if (logInsertError) {
-      console.error('!!! Failed to log failure to database:', logInsertError.message);
+      console.error(
+        '!!! Failed to log failure to database:',
+        logInsertError.message,
+      );
     } else {
       console.log(`Failure logged successfully for job ${jobName}.`);
     }
   } catch (e) {
-    const loggingErrorMessage = e instanceof Error ? e.message : 'Unknown error during logging';
-    console.error(`!!! CRITICAL: Error occurred while trying to log job failure: ${loggingErrorMessage}`);
+    const loggingErrorMessage = e instanceof Error
+      ? e.message
+      : 'Unknown error during logging';
+    console.error(
+      `!!! CRITICAL: Error occurred while trying to log job failure: ${loggingErrorMessage}`,
+    );
   }
 }
-
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -137,7 +142,9 @@ serve(async (req) => {
             console.log(
               `Milestone ${milestoneId} not found or access denied for user ${user.id}`,
             );
-            return createNotFoundResponse('Milestone not found or access denied');
+            return createNotFoundResponse(
+              'Milestone not found or access denied',
+            );
           }
 
           // Format response similar to the list endpoint
@@ -231,9 +238,10 @@ serve(async (req) => {
               .single();
 
           // Use 'any' cast for nested join result if needed, or access directly if type is correct
-          // deno-lint-ignore no-explicit-any
           const projectCompanyId =
+            // deno-lint-ignore no-explicit-any
             (milestoneToCheck?.projects as any)?.[0]?.company_id ??
+              // deno-lint-ignore no-explicit-any
               (milestoneToCheck?.projects as any)?.company_id; // Handle potential array/object difference
           if (checkError || !projectCompanyId) {
             console.error(
@@ -254,15 +262,16 @@ serve(async (req) => {
           // --- End Fetch ---
 
           // --- Permission Check: User needs 'milestone:approve' ---
-          const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-            'has_permission',
-            {
-              user_id: user.id,
-              company_id: projectCompanyId,
-              permission_key: 'milestone:approve',
-            },
-          );
-          
+          const { data: hasPermission, error: permissionError } =
+            await supabaseClient.rpc(
+              'has_permission',
+              {
+                user_id: user.id,
+                company_id: projectCompanyId,
+                permission_key: 'milestone:approve',
+              },
+            );
+
           if (permissionError) {
             console.error(
               `Error checking permissions for user ${user.id}:`,
@@ -275,7 +284,9 @@ serve(async (req) => {
             console.error(
               `User ${user.id} not authorized to approve milestone ${milestoneId} in project ${milestoneToCheck.project_id}.`,
             );
-            return createForbiddenResponse('Not authorized to approve this milestone');
+            return createForbiddenResponse(
+              'Not authorized to approve this milestone',
+            );
           }
           // --- End Permission Check ---
 
@@ -310,31 +321,47 @@ serve(async (req) => {
           // --- Trigger Notification ---
           try {
             // Fetch details needed for notification
-            const { data: notifyData, error: notifyFetchError } = await supabaseClient
-              .from('milestones')
-              .select(`
+            const { data: notifyData, error: notifyFetchError } =
+              await supabaseClient
+                .from('milestones')
+                .select(`
                 name,
                 projects ( name, project_owner_id, user_profiles ( email ) )
               `)
-              .eq('id', milestoneId)
-              .single();
+                .eq('id', milestoneId)
+                .single();
 
             if (notifyFetchError || !notifyData) {
-              throw new Error(`Failed to fetch data for notification: ${notifyFetchError?.message}`);
+              throw new Error(
+                `Failed to fetch data for notification: ${notifyFetchError?.message}`,
+              );
             }
 
             const milestoneName = notifyData.name;
             const projectName = notifyData.projects?.name;
             const projectOwnerId = notifyData.projects?.project_owner_id;
             const projectOwnerEmail = notifyData.projects?.user_profiles?.email;
-            const approverName = (await supabaseClient.from('user_profiles').select('full_name').eq('user_id', user.id).single()).data?.full_name || 'Someone';
+            const approverName =
+              (await supabaseClient.from('user_profiles').select('full_name')
+                .eq('user_id', user.id).single()).data?.full_name || 'Someone';
 
-            if (projectOwnerId && projectOwnerEmail && projectOwnerId !== user.id) { // Don't notify if approver is owner
-              const notificationSubject = `Milestone Approved: ${milestoneName} in ${projectName}`;
-              const notificationMessage = `${approverName} approved the milestone "${milestoneName}" in project "${projectName}".`;
+            if (
+              projectOwnerId && projectOwnerEmail && projectOwnerId !== user.id
+            ) { // Don't notify if approver is owner
+              const notificationSubject =
+                `Milestone Approved: ${milestoneName} in ${projectName}`;
+              const notificationMessage =
+                `${approverName} approved the milestone "${milestoneName}" in project "${projectName}".`;
 
-              const internalAuthSecret = await getSecret(supabaseClient, 'INTERNAL_FUNCTION_SECRET');
-              if (!internalAuthSecret) throw new Error('Internal function secret not configured for notifications.');
+              const internalAuthSecret = await getSecret(
+                supabaseClient,
+                'INTERNAL_FUNCTION_SECRET',
+              );
+              if (!internalAuthSecret) {
+                throw new Error(
+                  'Internal function secret not configured for notifications.',
+                );
+              }
 
               const notificationPayload = {
                 recipients: [{ email: projectOwnerEmail }],
@@ -349,7 +376,9 @@ serve(async (req) => {
                 },
               };
 
-              const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+              const functionUrl = `${
+                Deno.env.get('SUPABASE_URL')
+              }/functions/v1/send-notification`;
               const response = await fetch(functionUrl, {
                 method: 'POST',
                 headers: {
@@ -360,19 +389,41 @@ serve(async (req) => {
               });
 
               if (!response.ok) {
-                 console.error(`Failed to send milestone approval notification: ${response.status} ${await response.text()}`);
-                 // Log failure but don't fail the main request
-                 await logFailure(supabaseClient, 'milestone-approval-notification', notificationPayload, new Error(`Notification function failed with status ${response.status}`));
+                console.error(
+                  `Failed to send milestone approval notification: ${response.status} ${await response
+                    .text()}`,
+                );
+                // Log failure but don't fail the main request
+                await logFailure(
+                  supabaseClient,
+                  'milestone-approval-notification',
+                  notificationPayload,
+                  new Error(
+                    `Notification function failed with status ${response.status}`,
+                  ),
+                );
               } else {
-                 console.log(`Milestone approval notification sent successfully to ${projectOwnerEmail}.`);
+                console.log(
+                  `Milestone approval notification sent successfully to ${projectOwnerEmail}.`,
+                );
               }
             } else {
-               console.log(`Skipping notification for milestone ${milestoneId} (No owner, owner has no email, or approver is owner).`);
+              console.log(
+                `Skipping notification for milestone ${milestoneId} (No owner, owner has no email, or approver is owner).`,
+              );
             }
           } catch (notifyError) {
-             console.error(`Error preparing or sending milestone approval notification for ${milestoneId}:`, notifyError.message);
-             // Log failure but don't fail the main request
-             await logFailure(supabaseClient, 'milestone-approval-notification', { milestoneId }, notifyError);
+            console.error(
+              `Error preparing or sending milestone approval notification for ${milestoneId}:`,
+              notifyError.message,
+            );
+            // Log failure but don't fail the main request
+            await logFailure(
+              supabaseClient,
+              'milestone-approval-notification',
+              { milestoneId },
+              notifyError,
+            );
           }
           // --- End Notification ---
           return new Response(JSON.stringify(approvedMilestone), {
@@ -397,11 +448,22 @@ serve(async (req) => {
             if (!newMilestoneData.project_id) {
               errors.project_id = ['Project ID is required'];
             }
-            
+
             // Validate status enum if provided
-            const allowedStatuses = ['Pending', 'In Progress', 'Completed', 'Approved', 'Rejected'];
-            if (newMilestoneData.status && !allowedStatuses.includes(newMilestoneData.status)) {
-              errors.status = [`Status must be one of: ${allowedStatuses.join(', ')}`];
+            const allowedStatuses = [
+              'Pending',
+              'In Progress',
+              'Completed',
+              'Approved',
+              'Rejected',
+            ];
+            if (
+              newMilestoneData.status &&
+              !allowedStatuses.includes(newMilestoneData.status)
+            ) {
+              errors.status = [
+                `Status must be one of: ${allowedStatuses.join(', ')}`,
+              ];
             }
 
             if (Object.keys(errors).length > 0) {
@@ -431,15 +493,16 @@ serve(async (req) => {
           const projectCompanyId = projectToCheck.company_id;
 
           // Permission check: User with 'milestone:manage'
-          const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-            'has_permission',
-            {
-              user_id: user.id,
-              company_id: projectCompanyId,
-              permission_key: 'milestone:manage',
-            },
-          );
-          
+          const { data: hasPermission, error: permissionError } =
+            await supabaseClient.rpc(
+              'has_permission',
+              {
+                user_id: user.id,
+                company_id: projectCompanyId,
+                permission_key: 'milestone:manage',
+              },
+            );
+
           if (permissionError) {
             console.error(
               `Error checking permissions for user ${user.id}:`,
@@ -452,7 +515,9 @@ serve(async (req) => {
             console.error(
               `User ${user.id} not authorized to create milestones for project ${targetProjectId}.`,
             );
-            return createForbiddenResponse('Not authorized to create milestones for this project');
+            return createForbiddenResponse(
+              'Not authorized to create milestones for this project',
+            );
           }
 
           // Insert new milestone
@@ -475,14 +540,14 @@ serve(async (req) => {
 
           if (insertError) {
             console.error('Error creating milestone:', insertError.message);
-            
+
             // Handle specific database errors
             if (insertError.code === '23503') { // Foreign key violation
-              const constraint = insertError.message.includes('project_id') 
+              const constraint = insertError.message.includes('project_id')
                 ? 'project_id'
                 : insertError.message.includes('approval_id')
-                  ? 'approval_id'
-                  : 'unknown foreign key';
+                ? 'approval_id'
+                : 'unknown foreign key';
               return createBadRequestResponse(
                 `Invalid reference: ${constraint} refers to a record that doesn't exist`,
               );
@@ -495,7 +560,9 @@ serve(async (req) => {
                 `Invalid field value: ${insertError.message}`,
               );
             } else if (insertError.code === '23502') { // Not null violation
-              const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
+              const columnMatch = insertError.message.match(
+                /null value in column "(.+?)"/,
+              );
               const column = columnMatch ? columnMatch[1] : 'unknown';
               return createBadRequestResponse(
                 `The ${column} field is required.`,
@@ -513,7 +580,9 @@ serve(async (req) => {
           });
         } else {
           // Invalid POST path (e.g., /milestones/{id} without /approve)
-          return createMethodNotAllowedResponse('Method Not Allowed for this path');
+          return createMethodNotAllowedResponse(
+            'Method Not Allowed for this path',
+          );
         }
       }
       case 'PUT': {
@@ -548,15 +617,16 @@ serve(async (req) => {
         }
 
         // Permission check: User with 'milestone:manage'
-        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-          'has_permission',
-          {
-            user_id: user.id,
-            company_id: projectCompanyId,
-            permission_key: 'milestone:manage',
-          },
-        );
-        
+        const { data: hasPermission, error: permissionError } =
+          await supabaseClient.rpc(
+            'has_permission',
+            {
+              user_id: user.id,
+              company_id: projectCompanyId,
+              permission_key: 'milestone:manage',
+            },
+          );
+
         if (permissionError) {
           console.error(
             `Error checking permissions for user ${user.id}:`,
@@ -569,7 +639,9 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to update milestone ${milestoneId} in project ${milestoneToCheck.project_id}.`,
           );
-          return createForbiddenResponse('Not authorized to update this milestone');
+          return createForbiddenResponse(
+            'Not authorized to update this milestone',
+          );
         }
 
         // Parse request body
@@ -580,11 +652,21 @@ serve(async (req) => {
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
-          
+
           // Validate status enum if provided
-          const allowedStatuses = ['Pending', 'In Progress', 'Completed', 'Approved', 'Rejected'];
-          if (updateData.status && !allowedStatuses.includes(updateData.status)) {
-            throw new Error(`Status must be one of: ${allowedStatuses.join(', ')}`);
+          const allowedStatuses = [
+            'Pending',
+            'In Progress',
+            'Completed',
+            'Approved',
+            'Rejected',
+          ];
+          if (
+            updateData.status && !allowedStatuses.includes(updateData.status)
+          ) {
+            throw new Error(
+              `Status must be one of: ${allowedStatuses.join(', ')}`,
+            );
           }
         } catch (e) {
           const errorMessage = e instanceof Error
@@ -685,13 +767,15 @@ serve(async (req) => {
           );
           // Handle specific errors
           if (updateError.code === 'PGRST204') { // No rows updated/selected
-            return createNotFoundResponse('Milestone not found or update failed');
+            return createNotFoundResponse(
+              'Milestone not found or update failed',
+            );
           } else if (updateError.code === '23503') { // Foreign key violation
             const constraint = updateError.message.includes('approval_id')
               ? 'approval_id'
               : updateError.message.includes('signed_off_by_user_id')
-                ? 'signed_off_by_user_id'
-                : 'unknown foreign key';
+              ? 'signed_off_by_user_id'
+              : 'unknown foreign key';
             return createBadRequestResponse(
               `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
@@ -745,15 +829,16 @@ serve(async (req) => {
         }
 
         // Permission check: User with 'milestone:manage'
-        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-          'has_permission',
-          {
-            user_id: user.id,
-            company_id: projectCompanyId,
-            permission_key: 'milestone:manage',
-          },
-        );
-        
+        const { data: hasPermission, error: permissionError } =
+          await supabaseClient.rpc(
+            'has_permission',
+            {
+              user_id: user.id,
+              company_id: projectCompanyId,
+              permission_key: 'milestone:manage',
+            },
+          );
+
         if (permissionError) {
           console.error(
             `Error checking permissions for user ${user.id}:`,
@@ -766,7 +851,9 @@ serve(async (req) => {
           console.error(
             `User ${user.id} not authorized to delete milestone ${milestoneId} in project ${milestoneToCheck.project_id}.`,
           );
-          return createForbiddenResponse('Not authorized to delete this milestone');
+          return createForbiddenResponse(
+            'Not authorized to delete this milestone',
+          );
         }
 
         // Delete the milestone
@@ -782,7 +869,9 @@ serve(async (req) => {
           );
           // Handle specific database errors
           if (deleteError.code === 'PGRST204') { // No rows deleted
-            return createNotFoundResponse('Milestone not found or already deleted');
+            return createNotFoundResponse(
+              'Milestone not found or already deleted',
+            );
           } else if (deleteError.code === '23503') { // Foreign key violation
             return createConflictResponse(
               'Cannot delete this milestone because it is referenced by other records (like tasks). Remove all associated records first.',
