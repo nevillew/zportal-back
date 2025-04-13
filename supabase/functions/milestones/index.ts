@@ -726,10 +726,57 @@ serve(async (req) => {
 
           if (currentMilestone.sign_off_required) {
             console.log(
-              `Milestone ${milestoneId} requires sign-off. Preventing direct update to 'Completed'. Status will remain unchanged by this PUT request.`,
+              `Milestone ${milestoneId} requires sign-off. Status set to 'Completed', approval needed.`,
             );
-            delete allowedUpdates.status;
-            // TODO(notification): Trigger notification/approval process if status was being changed *to* something needing approval later (e.g., 'Pending Approval').
+            // Status remains 'Completed', but we trigger a notification for approval.
+            // The actual 'Approved' status change happens via POST /milestones/{id}/approve
+            try {
+              // Fetch details needed for notification
+              const { data: notifyData, error: notifyFetchError } = await supabaseClient
+                .from('milestones')
+                .select(`
+                  name,
+                  projects ( name, project_owner_id, user_profiles ( email ) )
+                `)
+                .eq('id', milestoneId)
+                .single();
+
+              if (notifyFetchError || !notifyData) throw new Error(`Failed to fetch data for notification: ${notifyFetchError?.message}`);
+
+              const milestoneName = notifyData.name;
+              const projectName = notifyData.projects?.name;
+              const projectOwnerId = notifyData.projects?.project_owner_id;
+              const projectOwnerEmail = notifyData.projects?.user_profiles?.email;
+              const updaterName = (await supabaseClient.from('user_profiles').select('full_name').eq('user_id', user.id).single()).data?.full_name || 'Someone';
+
+              if (projectOwnerId && projectOwnerEmail && projectOwnerId !== user.id) { // Notify owner if they didn't complete it
+                const notificationSubject = `Milestone Ready for Approval: ${milestoneName} in ${projectName}`;
+                const notificationMessage = `${updaterName} marked the milestone "${milestoneName}" in project "${projectName}" as completed. Your approval is required.`;
+                const internalAuthSecret = await getSecret(supabaseClient, 'INTERNAL_FUNCTION_SECRET');
+                if (!internalAuthSecret) throw new Error('Internal function secret not configured.');
+
+                const notificationPayload = {
+                  recipients: [{ email: projectOwnerEmail }],
+                  type: 'email',
+                  subject: notificationSubject,
+                  message: notificationMessage,
+                  context: { trigger: 'milestone_needs_approval', milestone_id: milestoneId, project_id: milestoneToCheck.project_id, updater_user_id: user.id },
+                };
+                const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+                const response = await fetch(functionUrl, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${internalAuthSecret}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify(notificationPayload),
+                });
+                if (!response.ok) console.error(`Failed to send milestone approval request notification: ${response.status} ${await response.text()}`);
+                else console.log(`Milestone approval request notification sent successfully to ${projectOwnerEmail}.`);
+              } else {
+                 console.log(`Skipping approval request notification for milestone ${milestoneId} (No owner, owner has no email, or owner completed it).`);
+              }
+            } catch (notifyError) {
+              console.error(`Error sending milestone approval request notification for ${milestoneId}:`, notifyError.message);
+              await logFailure(supabaseClient, 'milestone-needs-approval-notification', { milestoneId }, notifyError);
+            }
           }
         }
         // --- End Sign-off Workflow Check ---

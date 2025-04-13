@@ -88,13 +88,53 @@ BEGIN
                       AND record_id IN (SELECT id::text FROM public.company_users WHERE company_id = v_company.id)
                       AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
                     RETURNING id
+                ),
+                -- Delete logs for risks within the company's projects
+                deleted_risk_logs AS (
+                    DELETE FROM public.audit_log
+                    WHERE table_name = 'risks'
+                      AND record_id IN (SELECT r.id::text FROM public.risks r JOIN public.projects p ON r.project_id = p.id WHERE p.company_id = v_company.id)
+                      AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
+                    RETURNING id
+                ),
+                -- Delete logs for issues within the company's projects
+                deleted_issue_logs AS (
+                    DELETE FROM public.audit_log
+                    WHERE table_name = 'issues'
+                      AND record_id IN (SELECT i.id::text FROM public.issues i JOIN public.projects p ON i.project_id = p.id WHERE p.company_id = v_company.id)
+                      AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
+                    RETURNING id
+                ),
+                -- Delete logs for milestones within the company's projects
+                deleted_milestone_logs AS (
+                    DELETE FROM public.audit_log
+                    WHERE table_name = 'milestones'
+                      AND record_id IN (SELECT m.id::text FROM public.milestones m JOIN public.projects p ON m.project_id = p.id WHERE p.company_id = v_company.id)
+                      AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
+                    RETURNING id
+                ),
+                 -- Delete logs for documents scoped to the company or its projects
+                deleted_document_logs AS (
+                    DELETE FROM public.audit_log
+                    WHERE table_name = 'documents'
+                      AND record_id IN (
+                          SELECT d.id::text FROM public.documents d WHERE d.company_id = v_company.id
+                          UNION
+                          SELECT d.id::text FROM public.documents d JOIN public.projects p ON d.project_id = p.id WHERE p.company_id = v_company.id
+                      )
+                      AND timestamp < (now() - (v_audit_log_retention_days || ' days')::interval)
+                    RETURNING id
                 )
-                -- Add similar CTEs for other relevant tables (risks, issues, milestones, documents, etc.) linked to the company
+                -- Add similar CTEs for other relevant tables (meetings, etc.) linked to the company
                 SELECT
-                    (SELECT count(*) FROM deleted_company_logs) +
+                    (SELECT count(*) FROM deleted_logs) + -- Renamed from deleted_company_logs
                     (SELECT count(*) FROM deleted_project_logs) +
                     (SELECT count(*) FROM deleted_task_logs) +
-                    (SELECT count(*) FROM deleted_cu_logs)
+                    (SELECT count(*) FROM deleted_cu_logs) +
+                    (SELECT count(*) FROM deleted_risk_logs) +
+                    (SELECT count(*) FROM deleted_issue_logs) +
+                    (SELECT count(*) FROM deleted_milestone_logs) +
+                    (SELECT count(*) FROM deleted_document_logs)
                     -- Add counts from other CTEs here
                 INTO v_deleted_logs_count;
 

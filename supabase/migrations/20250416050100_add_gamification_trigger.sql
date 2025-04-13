@@ -134,5 +134,84 @@ EXECUTE FUNCTION public.award_badges_on_lesson_completion();
 
 COMMENT ON TRIGGER gamification_lesson_completion_trigger ON public.lesson_completions IS 'Awards badges based on specific lesson completions.';
 
--- TODO: Apply similar triggers to other relevant tables (e.g., tasks, projects)
--- based on different badge criteria types ('task_completion', 'project_completion', etc.)
+-- TODO: Apply similar triggers to other relevant tables (e.g., projects)
+-- based on different badge criteria types ('project_completion', etc.)
+
+-- 3. Create trigger function for task completion badges
+CREATE OR REPLACE FUNCTION public.award_badges_on_task_completion()
+RETURNS TRIGGER AS $$
+DECLARE
+    badge_record record;
+    v_user_name text;
+    v_badge_name text;
+    v_notification_payload jsonb;
+    v_function_url text := supabase_url() || '/functions/v1/send-notification';
+    v_internal_secret text;
+    v_auth_header jsonb;
+BEGIN
+    -- Only award if task status changes TO 'Complete' and it has an assignee
+    IF TG_OP = 'UPDATE' AND NEW.status = 'Complete' AND OLD.status <> 'Complete' AND NEW.assigned_to_id IS NOT NULL THEN
+        RAISE LOG 'Checking badges for task completion: user_id=%, task_id=%', NEW.assigned_to_id, NEW.id;
+
+        -- Get user name for notifications
+        SELECT full_name INTO v_user_name FROM public.user_profiles WHERE user_id = NEW.assigned_to_id;
+
+        -- Find badges awarded for completing this specific task
+        FOR badge_record IN
+            SELECT id, name
+            FROM public.badges
+            WHERE is_active = true
+              AND criteria->>'type' = 'task_completion'
+              AND (criteria->>'task_id')::uuid = NEW.id
+        LOOP
+            RAISE LOG 'Found matching task completion badge: %', badge_record.id;
+
+            -- Attempt to insert into user_badges, ignore if the user already has it
+            INSERT INTO public.user_badges (user_id, badge_id, context)
+            VALUES (
+                NEW.assigned_to_id,
+                badge_record.id,
+                jsonb_build_object('task_id', NEW.id)
+            )
+            ON CONFLICT (user_id, badge_id) DO NOTHING;
+
+            IF FOUND THEN
+                RAISE LOG 'Awarded badge "%" (%) to user % for completing task %', badge_record.name, badge_record.id, NEW.assigned_to_id, NEW.id;
+                -- Send notification (similar logic as lesson completion)
+                BEGIN
+                    SELECT decrypted_secret INTO v_internal_secret FROM supabase_vault.secrets WHERE name = 'INTERNAL_FUNCTION_SECRET';
+                    IF v_internal_secret IS NOT NULL THEN
+                        v_auth_header := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || v_internal_secret);
+                        v_notification_payload := jsonb_build_object(
+                            'recipients', jsonb_build_array(jsonb_build_object('userId', NEW.assigned_to_id)),
+                            'type', 'in_app',
+                            'subject', 'New Badge Earned!',
+                            'message', 'Congratulations ' || COALESCE(v_user_name, 'User') || '! You earned the "' || badge_record.name || '" badge for completing a task!',
+                            'context', jsonb_build_object('trigger', 'badge_award', 'badge_id', badge_record.id, 'task_id', NEW.id)
+                        );
+                        PERFORM net.http_post(url := v_function_url, headers := v_auth_header, body := v_notification_payload);
+                    ELSE RAISE WARNING 'INTERNAL_FUNCTION_SECRET not found, cannot send badge notification.'; END IF;
+                EXCEPTION WHEN others THEN RAISE WARNING 'Failed to send badge notification: %', SQLERRM; END;
+            ELSE
+                RAISE LOG 'User % already has badge %.', NEW.assigned_to_id, badge_record.id;
+            END IF;
+        END LOOP;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION public.award_badges_on_task_completion() IS 'Trigger function to award badges based on completing specific tasks.';
+
+GRANT EXECUTE ON FUNCTION public.award_badges_on_task_completion() TO postgres;
+GRANT EXECUTE ON FUNCTION public.award_badges_on_task_completion() TO authenticated;
+
+-- 4. Apply the trigger to the tasks table
+DROP TRIGGER IF EXISTS gamification_task_completion_trigger ON public.tasks;
+CREATE TRIGGER gamification_task_completion_trigger
+AFTER UPDATE OF status ON public.tasks -- Fire when status is updated
+FOR EACH ROW
+EXECUTE FUNCTION public.award_badges_on_task_completion();
+
+COMMENT ON TRIGGER gamification_task_completion_trigger ON public.tasks IS 'Awards badges based on specific task completions when status changes to Complete.';

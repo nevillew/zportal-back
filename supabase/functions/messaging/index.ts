@@ -174,6 +174,46 @@ serve(async (req) => {
             if (Object.keys(errors).length > 0) {
               return createValidationErrorResponse(errors);
             }
+            // --- Start Validation ---
+            // Validate participant IDs exist and are active
+            if (body.participant_ids.length > 0) {
+              const { data: usersCheck, error: usersCheckError } = await supabaseClient
+                .from('user_profiles')
+                .select('user_id')
+                .in('user_id', body.participant_ids)
+                .eq('is_active', true);
+
+              if (usersCheckError) throw new Error(`Error validating participants: ${usersCheckError.message}`);
+              if (usersCheck?.length !== body.participant_ids.length) {
+                 errors.participant_ids = ['One or more participant IDs are invalid or inactive.'];
+              }
+            }
+            // Validate project ID exists if provided
+            if (body.project_id) {
+               const { data: projectCheck, error: projectCheckError } = await supabaseClient
+                 .from('projects')
+                 .select('id')
+                 .eq('id', body.project_id)
+                 .maybeSingle(); // RLS applies
+               if (projectCheckError) throw new Error(`Error validating project ID: ${projectCheckError.message}`);
+               if (!projectCheck) errors.project_id = ['Project not found or access denied.'];
+            }
+            // Validate task ID exists if provided
+            if (body.task_id) {
+               const { data: taskCheck, error: taskCheckError } = await supabaseClient
+                 .from('tasks')
+                 .select('id')
+                 .eq('id', body.task_id)
+                 .maybeSingle(); // RLS applies
+               if (taskCheckError) throw new Error(`Error validating task ID: ${taskCheckError.message}`);
+               if (!taskCheck) errors.task_id = ['Task not found or access denied.'];
+            }
+            // --- End Validation ---
+
+
+            if (Object.keys(errors).length > 0) {
+              return createValidationErrorResponse(errors);
+            }
           } catch (e) {
             return createBadRequestResponse(
               e instanceof Error ? e.message : 'Invalid JSON body',
@@ -314,17 +354,145 @@ serve(async (req) => {
 
           if (insertError) throw insertError; // RLS or DB constraint likely failed
 
-          // TODO(realtime): Consider sending a Realtime event for the new message
+          // Send Realtime event for the new message
+          try {
+            const channel = supabaseClient.channel(`conversation-${conversationId}`);
+            await channel.send({
+              type: 'broadcast',
+              event: 'new_message',
+              payload: newMessage, // Send the newly created message object
+            });
+            console.log(`Realtime event sent for new message in conversation ${conversationId}`);
+          } catch (realtimeError) {
+            console.error(`Failed to send Realtime event for new message: ${realtimeError.message}`);
+            // Log failure but don't fail the request
+            // await logFailure(...)
+          }
 
           return new Response(JSON.stringify(newMessage), {
-            status: 201,
+            status: 201, // Created
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } else {
           return createBadRequestResponse('Invalid POST request path');
         }
       }
-      // TODO: Implement PUT/DELETE for messages if needed (edit/delete own message)
+      case 'PUT': { // Update a message
+        if (resourceType !== 'messages' || !messageId) {
+          return createBadRequestResponse('Message ID is required to update a message');
+        }
+        console.log(`PUT /messages/${messageId}`);
+
+        let body: { content: string };
+        try {
+          body = await req.json();
+          if (!body.content || body.content.trim().length === 0) {
+            return createValidationErrorResponse({ content: ['Message content cannot be empty'] });
+          }
+        } catch (e) {
+          return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+        }
+
+        // Fetch message to check ownership
+        const { data: existingMessage, error: fetchError } = await supabaseClient
+          .from('messages')
+          .select('sender_user_id')
+          .eq('id', messageId)
+          .single(); // Use single to ensure it exists
+
+        if (fetchError) {
+           return createNotFoundResponse('Message not found');
+        }
+
+        // Permission check: Only sender can edit
+        if (existingMessage.sender_user_id !== user.id) {
+          return createForbiddenResponse('You can only edit your own messages');
+        }
+
+        // Update message content
+        const { data: updatedMessage, error: updateError } = await supabaseClient
+          .from('messages')
+          .update({ content: body.content })
+          .eq('id', messageId)
+          .select(`*, sender:sender_user_id ( id, full_name, avatar_url )`) // Fetch sender details again
+          .single();
+
+        if (updateError) {
+          if (updateError.code === 'PGRST204') return createNotFoundResponse('Message not found');
+          throw updateError;
+        }
+
+        // Send Realtime event for updated message
+        try {
+          const channel = supabaseClient.channel(`conversation-${updatedMessage.conversation_id}`);
+          await channel.send({
+            type: 'broadcast',
+            event: 'update_message',
+            payload: updatedMessage,
+          });
+          console.log(`Realtime event sent for updated message ${messageId}`);
+        } catch (realtimeError) {
+          console.error(`Failed to send Realtime event for updated message: ${realtimeError.message}`);
+        }
+
+
+        return new Response(JSON.stringify(updatedMessage), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      case 'DELETE': { // Delete a message
+        if (resourceType !== 'messages' || !messageId) {
+          return createBadRequestResponse('Message ID is required to delete a message');
+        }
+        console.log(`DELETE /messages/${messageId}`);
+
+        // Fetch message to check ownership
+        const { data: existingMessage, error: fetchError } = await supabaseClient
+          .from('messages')
+          .select('sender_user_id, conversation_id')
+          .eq('id', messageId)
+          .single();
+
+        if (fetchError) {
+           return createNotFoundResponse('Message not found');
+        }
+
+        // Permission check: Sender or Staff
+        const { data: profile, error: profileError } = await supabaseClient
+          .from('user_profiles').select('is_staff').eq('user_id', user.id).single();
+        if (profileError) throw profileError; // Internal error if profile fetch fails
+
+        if (existingMessage.sender_user_id !== user.id && !profile?.is_staff) {
+          return createForbiddenResponse('You can only delete your own messages');
+        }
+
+        // Delete message
+        const { error: deleteError } = await supabaseClient
+          .from('messages')
+          .delete()
+          .eq('id', messageId);
+
+        if (deleteError) {
+          if (deleteError.code === 'PGRST204') return createNotFoundResponse('Message not found');
+          throw deleteError;
+        }
+
+        // Send Realtime event for deleted message
+         try {
+          const channel = supabaseClient.channel(`conversation-${existingMessage.conversation_id}`);
+          await channel.send({
+            type: 'broadcast',
+            event: 'delete_message',
+            payload: { id: messageId, conversation_id: existingMessage.conversation_id }, // Send ID for removal
+          });
+          console.log(`Realtime event sent for deleted message ${messageId}`);
+        } catch (realtimeError) {
+          console.error(`Failed to send Realtime event for deleted message: ${realtimeError.message}`);
+        }
+
+        return new Response(null, { status: 204, headers: { ...corsHeaders } });
+      }
       default:
         return createMethodNotAllowedResponse();
     }
