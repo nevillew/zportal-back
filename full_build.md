@@ -6,18 +6,9 @@ This document outlines the remaining backend implementation tasks based on `full
 
 ### 2.3 Logic for Tenancy & Access Control
 
--   **Invitation Flow Logic (Frontend):**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed to verify token, prompt user, and call accept API.
--   **Role & Permission Management UI:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed. Backend support via `roles` table RLS and potentially API endpoints (if PostgREST is insufficient).
--   **Tenant/Company Admin Dashboard:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
--   **Single Sign-On (SSO) Logic (Frontend/Config):**
-    -   _Status:_ Frontend Task / Supabase Config.
-    -   _Action Points:_ Frontend implementation for UI/Flow. Enable SAML/OIDC providers in Supabase Auth settings.
+-   **Single Sign-On (SSO) Logic (Config):**
+    -   _Status:_ Supabase Config.
+    -   _Action Points:_ Enable SAML/OIDC providers in Supabase Auth settings.
 
 ### 2.4 Security Rules (RLS Policies in Supabase)
 
@@ -42,16 +33,10 @@ This document outlines the remaining backend implementation tasks based on `full
 
 ### 3.3 Logic for Projects
 
--   **Milestone Tracking Logic (UI):**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 -   **Milestone Sign-off Workflow (`approvals` table):**
     -   _Status:_ Deferred (Schema TBD).
     -   _Solution:_ Define `approvals` and `approval_steps` table schemas if a formal multi-step workflow is required beyond the current basic sign-off fields. Implement logic in `milestones` function PUT handler to create `approvals` record.
     -   _Action Points:_ (Deferred) Create migration for `approvals` schema. Modify `milestones` Edge Function.
--   **Risk/Issue Management Logic (UI):**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 -   **Project Health Logic (Scheduled Job):**
     -   _Status:_ Deferred (Logic TBD).
     -   _Solution:_ Define calculation logic (e.g., based on overdue tasks, milestone status). Create a SQL function for the calculation. Create a scheduled job (pg_cron calling an Edge Function or SQL function) to run periodically and update `projects.health_status`.
@@ -59,22 +44,10 @@ This document outlines the remaining backend implementation tasks based on `full
 
 ### 3.8 Logic for Tasks & Sections
 
--   **Frontend DND logic for `order` updates:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed. Backend PUT endpoints for `tasks` and `sections` already support updating `order`.
--   **Conditional Task evaluation logic (Frontend):**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed to evaluate `tasks.condition` JSONB and conditionally render/enable tasks.
 -   **Dependency enforcement logic (Backend):**
     -   _Status:_ Partially Implemented (Basic check in PUT). Requires enhancement.
     -   _Solution:_ Enhance the RLS `WITH CHECK` clause on the `tasks` table UPDATE policy to prevent status updates to 'Complete' if `depends_on_task_id` points to an incomplete task. Alternatively, create a `BEFORE UPDATE` trigger.
     -   _Action Points:_ Create migration `YYYYMMDDHHMMSS_enhance_task_dependency_rls.sql` to `DROP` and `CREATE` the existing UPDATE policy on `tasks` with the added dependency check in the `WITH CHECK` clause.
--   **Sub-Task UI hierarchy:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
--   **Recurring Task definition UI:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 
 ### 3.9 Security Rules (RLS) for Tasks & Sections
 
@@ -122,9 +95,6 @@ This document outlines the remaining backend implementation tasks based on `full
     -   _Status:_ Outstanding.
     -   _Solution:_ Add a new API endpoint (e.g., `POST /documents/{documentId}/approve`) or modify the existing PUT endpoint in the `documents` Edge Function. This endpoint should check for `document:approve` permission, then update the document's `status` to 'Approved', set `is_approved = true`, `approved_by_user_id = auth.uid()`, and `approved_at = now()`.
     -   _Action Points:_ Modify `supabase/functions/documents/index.ts` to add the approval logic/endpoint.
--   **Implement Document/Page Linking logic:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed (editor support, rendering).
 -   **Implement Internal Comment visibility logic:**
     -   _Status:_ Outstanding (RLS policy needed).
     -   _Solution:_ Implement RLS policy for `document_comments`.
@@ -154,9 +124,6 @@ This document outlines the remaining backend implementation tasks based on `full
     -   _Status:_ Deferred (Rules TBD).
     -   _Solution:_ Define schema for `training_assignment_rules` table. Create a scheduled function (SQL or Edge) to evaluate rules against users/companies and insert into `course_assignments`.
     -   _Action Points:_ (Deferred) Define rules logic. Create migration for rules table. Create migration for scheduled function/trigger.
--   **Implement UI display for earned badges:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 -   **Implement Quiz logic:**
     -   _Status:_ Partially Outstanding (Backend endpoint needed).
     -   _Solution:_ Create a new Edge Function (e.g., `submit-quiz`) that accepts `lesson_id` and user answers. Fetch `lessons.quiz_data`, validate answers, calculate score, and insert/update `lesson_completions` record with the score.
@@ -166,9 +133,6 @@ This document outlines the remaining backend implementation tasks based on `full
 
 ### 7.2 Advanced Workflow Features
 
--   **Ensure `tasks.condition` is evaluated correctly:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 -   **Ensure `tasks.depends_on_task_id` is enforced:**
     -   _Status:_ Covered by item 3.9.
 -   **Implement Training Auto-Assignment:**
@@ -180,30 +144,12 @@ This document outlines the remaining backend implementation tasks based on `full
 
 ### 7.3 Client Experience Enhancements
 
--   **Ensure Role-based UI rendering:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
--   **Implement Client Portal Customization:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed (reading CSS vars from `companies` API).
-
 ### 7.5 Advanced Permission System
-
--   **Implement Role Management UI:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 
 ### 7.6 Implementation Features
 
--   **Implement Bulk Operations:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed (using Supabase client library batching).
-
 ### 7.7 Technical Enhancements
 
--   **Implement Audit Log Viewer UI:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 -   **Implement custom rate limiting:**
     -   _Status:_ Deferred (Low Priority).
     -   _Solution:_ Configure Supabase Auth limits. If more granular control is needed per-function, investigate using external services (Redis, Upstash) or database tables for tracking requests within Edge Functions.
@@ -217,9 +163,6 @@ This document outlines the remaining backend implementation tasks based on `full
     -   _Status:_ Deferred (Schema TBD).
     -   _Solution:_ Define schema for `document_templates` similar to `project_templates`.
     -   _Action Points:_ (Deferred) Create migration for `document_templates` schema.
--   **Implement Internal Linking:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 
 ### 7.9 Communication Enhancements
 
@@ -233,10 +176,6 @@ This document outlines the remaining backend implementation tasks based on `full
     -   _Status:_ Covered by item 6.2 (Deferred).
 
 ### 7.13 Custom Fields
-
--   **Implement Staff UI for managing definitions:**
-    -   _Status:_ Frontend Task.
-    -   _Action Points:_ Frontend implementation needed.
 
 ### 7.15 Error Handling Philosophy
 
@@ -265,12 +204,4 @@ This document outlines the remaining backend implementation tasks based on `full
 
 ## 10. Configuration & Administration
 
--   **Ensure backend supports required Admin UIs:**
-    -   _Status:_ Covered by specific feature implementations (Roles, Custom Fields, Templates, etc.).
-    -   _Action Points:_ Verify necessary API endpoints and RLS policies exist as part of implementing the corresponding frontend admin UIs.
-
 ## 12. General Requirements
-
--   **Ensure backend provides necessary data for frontend accessibility:**
-    -   _Status:_ Addressed (Ongoing).
-    -   _Action Points:_ Continuously review API responses during frontend development to ensure necessary data (e.g., IDs for `aria-labelledby`) is included.
