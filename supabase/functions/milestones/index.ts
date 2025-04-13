@@ -642,10 +642,9 @@ serve(async (req) => {
         }
 
         // Parse request body
-        // deno-lint-ignore no-explicit-any
-        let updateData: any;
+        let updateData: Record<string, unknown>; // Use Record<string, unknown>
         try {
-          updateData = await req.json();
+          updateData = await req.json() as Record<string, unknown>;
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }

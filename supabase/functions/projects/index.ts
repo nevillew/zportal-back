@@ -183,10 +183,8 @@ serve(async (req) => {
           // Format the list response for consistency
           const projectList = projects?.map((p) => ({
             ...p,
-            // Access the first element of the potential array from the join
-            // deno-lint-ignore no-explicit-any
-            company_name: (p.companies as any)?.[0]?.name ??
-              (p.companies as any)?.name, // Handle potential array/object
+            // Use type assertion for the join result
+            company_name: (p.companies as { name: string })?.name,
             companies: undefined, // Remove nested object
           })) || [];
 
