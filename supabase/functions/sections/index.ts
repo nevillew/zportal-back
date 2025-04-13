@@ -246,11 +246,10 @@ serve(async (req) => {
           .eq('id', sectionId)
           .single();
 
-        // The join might return an array even with .single(), addressing TS2339
-        // deno-lint-ignore no-explicit-any
+        // Use type assertion for nested join result
         const projectCompanyId =
-          (sectionToCheck?.projects as any)?.[0]?.company_id ??
-            (sectionToCheck?.projects as any)?.company_id;
+          (sectionToCheck?.projects as { company_id: string })?.company_id;
+
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching section ${sectionId} for permission check or section/project/company not found:`,
@@ -363,11 +362,10 @@ serve(async (req) => {
           .eq('id', sectionId)
           .single();
 
-        // The join might return an array even with .single(), addressing TS2339
-        // deno-lint-ignore no-explicit-any
+        // Use type assertion for nested join result
         const projectCompanyId =
-          (sectionToCheck?.projects as any)?.[0]?.company_id ??
-            (sectionToCheck?.projects as any)?.company_id;
+          (sectionToCheck?.projects as { company_id: string })?.company_id;
+
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching section ${sectionId} for permission check or section/project/company not found:`,

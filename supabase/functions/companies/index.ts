@@ -244,7 +244,12 @@ serve(async (req) => {
           // We only need company data, not the join table info in the response
           const userCompanies = companies?.map((
             { company_users: _company_users, ...companyData },
-          ) => companyData) || [];
+          ) => ({
+            ...companyData,
+            // Use type assertion for the join result
+            company_name: (companyData.companies as { name: string })?.name,
+            companies: undefined, // Remove nested object
+          })) || [];
 
           return new Response(JSON.stringify(userCompanies), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -18,10 +18,10 @@ const CERTIFICATES_BUCKET = 'certificates';
 
 // --- Helper: Get Secret from Vault ---
 // (Assuming this helper exists or is added, similar to send-notification function)
-async function getSecret(
-  client: SupabaseClient,
+function getSecret( // Removed async
+  _client: SupabaseClient, // Prefix unused parameter
   secretName: string,
-): Promise<string | null> {
+): string | null { // Return type changed to string | null
   console.log(`Attempting to fetch secret: ${secretName}`);
   try {
     const secretValue = Deno.env.get(secretName); // Using env var as placeholder/fallback

@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import {
   createClient,
@@ -10,7 +9,7 @@ import {
   createForbiddenResponse,
   createInternalServerErrorResponse,
   createMethodNotAllowedResponse,
-  createNotFoundResponse,
+  // createNotFoundResponse, // Removed unused import
   createUnauthorizedResponse,
   createValidationErrorResponse,
   ValidationErrors,

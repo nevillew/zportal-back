@@ -7,7 +7,7 @@ import {
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
-  createForbiddenResponse,
+  // createForbiddenResponse, // Removed unused import
   createInternalServerErrorResponse,
   createMethodNotAllowedResponse,
   createUnauthorizedResponse,
@@ -32,10 +32,10 @@ interface NotificationPayload {
 }
 
 // --- Helper: Get Secret from Vault ---
-async function getSecret(
-  client: SupabaseClient,
+function getSecret( // Removed async
+  _client: SupabaseClient, // Prefix unused parameter
   secretName: string,
-): Promise<string | null> {
+): string | null { // Return type changed to string | null
   // Note: Direct access to vault.secrets requires elevated privileges.
   // This function assumes it's called by a client with appropriate rights (e.g., service_role).
   // Or, it needs to be adapted to call an RPC function that securely retrieves the secret.

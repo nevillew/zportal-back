@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import {
   createClient,
-  PostgrestError,
+  // PostgrestError, // Removed unused import
   SupabaseClient,
 } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
@@ -45,89 +45,6 @@ interface TaskTemplate {
   estimated_effort_hours?: number;
   condition_template?: any; // JSONB
   custom_field_template_values?: { [definitionId: string]: any }; // JSONB
-}
-
-// --- Helper Function for Placeholder Resolution ---
-// deno-lint-ignore no-explicit-any
-async function resolvePlaceholders(
-  text: string | null | undefined,
-  placeholderValues: { [key: string]: string } | undefined,
-  definedPlaceholders: any[] | undefined, // From project_template_versions.defined_placeholders
-  companyData: any, // Fetched company record
-  companyCustomFields: { [fieldName: string]: any } | undefined, // Formatted custom fields for the company
-): Promise<string> {
-  if (!text) {
-    return '';
-  }
-
-  let resolvedText = text;
-  const placeholderRegex = /{{(.*?)}}/g;
-  let match;
-
-  // Use a loop that continues as long as a match is found in the *original* text
-  // This prevents issues with nested or repeated placeholders if replacement modifies the string in a way that affects subsequent regex matches.
-  // A more robust approach might involve multiple passes or more complex parsing if placeholders can contain other placeholders.
-  while ((match = placeholderRegex.exec(text)) !== null) {
-    const fullMatch = match[0]; // e.g., {{client_contact}}
-    const key = match[1].trim(); // e.g., client_contact
-    let replacementValue = ''; // Default to empty string if not found
-
-    console.log(`Resolving placeholder: ${key}`);
-
-    // 1. Check user-provided overrides first
-    if (placeholderValues && placeholderValues[key] !== undefined) {
-      replacementValue = placeholderValues[key];
-      console.log(` -> Found in provided values: "${replacementValue}"`);
-    } else {
-      // 2. Check defined placeholders and their sources
-      const definition = definedPlaceholders?.find((p) => p.key === key);
-      if (definition?.source) {
-        console.log(` -> Checking source: ${definition.source}`);
-        const sourceParts = String(definition.source).split(':'); // Ensure source is treated as string
-        const sourceType = sourceParts[0]; // e.g., 'company.field_name' or 'company.custom_field'
-        const sourceKey = sourceParts[1]; // e.g., 'name' or 'main_contact_name'
-
-        if (
-          sourceType === 'company.field_name' && companyData &&
-          companyData[sourceKey] !== undefined
-        ) {
-          replacementValue = String(companyData[sourceKey]);
-          console.log(
-            ` -> Found in company standard field "${sourceKey}": "${replacementValue}"`,
-          );
-        } else if (
-          sourceType === 'company.custom_field' && companyCustomFields &&
-          companyCustomFields[sourceKey] !== undefined
-        ) {
-          // Assuming companyCustomFields is { fieldName: { value: ... } }
-          replacementValue = String(
-            companyCustomFields[sourceKey]?.value ?? '',
-          );
-          console.log(
-            ` -> Found in company custom field "${sourceKey}": "${replacementValue}"`,
-          );
-        } else {
-          console.warn(
-            ` -> Source "${definition.source}" for key "${key}" not found or value missing.`,
-          );
-        }
-      } else {
-        console.warn(
-          ` -> Placeholder key "${key}" not found in provided values or template definitions.`,
-        );
-      }
-    }
-
-    // Replace *all* occurrences of the full match in the current resolvedText state
-    // Use a regex for global replacement within the loop's current text state
-    // Escape special regex characters in the placeholder key itself
-    resolvedText = resolvedText.replace(
-      new RegExp(fullMatch.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g'),
-      replacementValue,
-    );
-  }
-
-  return resolvedText;
 }
 
 // --- Main Handler ---

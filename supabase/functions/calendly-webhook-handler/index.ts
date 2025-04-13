@@ -19,10 +19,10 @@ console.log('Calendly Webhook Handler function started');
 
 // --- Helper: Get Secret from Vault ---
 // (Assuming this helper exists or is added, similar to send-notification function)
-async function getSecret(
-  client: SupabaseClient,
+function getSecret( // Removed async
+  _client: SupabaseClient, // Prefix unused parameter
   secretName: string,
-): Promise<string | null> {
+): string | null { // Return type changed to string | null
   console.log(`Attempting to fetch secret: ${secretName}`);
   try {
     const secretValue = Deno.env.get(secretName); // Using env var as placeholder/fallback
@@ -42,11 +42,11 @@ async function getSecret(
 // --- Helper: Verify Calendly Signature (Placeholder) ---
 // See: https://developer.calendly.com/webhook-signatures
 // This requires the 'CALENDLY_WEBHOOK_SECRET' from your Calendly webhook settings stored in Vault/env.
-async function verifySignature(
-  secret: string,
+function verifySignature( // Removed async
+  _secret: string, // Prefix unused parameter
   request: Request,
-  rawBody: string,
-): Promise<boolean> {
+  _rawBody: string, // Prefix unused parameter
+): boolean { // Return type changed to boolean
   const signatureHeader = request.headers.get('Calendly-Webhook-Signature');
   if (!signatureHeader) {
     console.warn('Missing Calendly-Webhook-Signature header');
@@ -63,7 +63,7 @@ async function verifySignature(
     return false;
   }
 
-  const timestamp = timestampPart.split('=')[1];
+  const _timestamp = timestampPart.split('=')[1]; // Prefix unused variable
   const signature = signaturePart.split('=')[1];
 
   // --- TODO: Implement actual HMAC-SHA256 verification ---

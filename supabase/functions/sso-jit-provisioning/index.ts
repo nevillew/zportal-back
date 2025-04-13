@@ -118,7 +118,7 @@ serve(async (req) => {
     );
   }
 
-  const { user, claims } = payload;
+  const { user, claims: _claims } = payload; // Prefix unused claims
   console.log(
     `Processing JIT provisioning for user: ${user.id} (${user.email})`,
   );
@@ -179,7 +179,7 @@ serve(async (req) => {
     console.log(`Mapped full_name: ${userFullName}`);
 
     // 4. Create/Update User Profile
-    const { data: profile, error: profileUpsertError } =
+    const { error: profileUpsertError } = // Remove unused 'profile' variable
       await supabaseAdminClient
         .from('user_profiles')
         .upsert(

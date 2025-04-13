@@ -17,10 +17,10 @@ console.log('Milestones function started');
 
 // --- Helper: Get Secret from Vault ---
 // (Assuming this helper exists or is added, similar to send-notification function)
-async function getSecret(
-  client: SupabaseClient,
+function getSecret( // Removed async
+  _client: SupabaseClient, // Prefix unused parameter
   secretName: string,
-): Promise<string | null> {
+): string | null { // Return type changed to string | null
   console.log(`Attempting to fetch secret: ${secretName}`);
   try {
     const secretValue = Deno.env.get(secretName); // Using env var as placeholder/fallback
@@ -237,15 +237,13 @@ serve(async (req) => {
               .eq('id', milestoneId)
               .single();
 
-          // Use 'any' cast for nested join result if needed, or access directly if type is correct
+          // Use type assertion for nested join result
           const projectCompanyId =
-            // deno-lint-ignore no-explicit-any
-            (milestoneToCheck?.projects as any)?.[0]?.company_id ??
-              // deno-lint-ignore no-explicit-any
-              (milestoneToCheck?.projects as any)?.company_id; // Handle potential array/object difference
+            (milestoneToCheck?.projects as { company_id: string })?.company_id;
+
           if (checkError || !projectCompanyId) {
             console.error(
-              `Error fetching milestone ${milestoneId} for approval check:`,
+              `Error fetching milestone ${milestoneId} for approval check or company ID missing:`,
               checkError?.message,
             );
             return createNotFoundResponse(
@@ -601,11 +599,10 @@ serve(async (req) => {
             .eq('id', milestoneId)
             .single();
 
-        // Explicitly check the structure and access company_id
-        // deno-lint-ignore no-explicit-any
+        // Use type assertion for nested join result
         const projectCompanyId =
-          (milestoneToCheck?.projects as any)?.[0]?.company_id ??
-            (milestoneToCheck?.projects as any)?.company_id;
+          (milestoneToCheck?.projects as { company_id: string })?.company_id;
+
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching milestone ${milestoneId} for permission check or milestone/project/company not found:`,
@@ -813,11 +810,10 @@ serve(async (req) => {
             .eq('id', milestoneId)
             .single();
 
-        // The join might return an array even with .single(), addressing TS2339
-        // deno-lint-ignore no-explicit-any
+        // Use type assertion for nested join result
         const projectCompanyId =
-          (milestoneToCheck?.projects as any)?.[0]?.company_id ??
-            (milestoneToCheck?.projects as any)?.company_id;
+          (milestoneToCheck?.projects as { company_id: string })?.company_id;
+
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching milestone ${milestoneId} for permission check or milestone/project/company not found:`,

@@ -326,11 +326,10 @@ serve(async (req) => {
           .eq('id', riskId)
           .single();
 
-        // The join might return an array even with .single(), addressing TS2339
-        // deno-lint-ignore no-explicit-any
+        // Use type assertion for nested join result
         const projectCompanyId =
-          (riskToCheck?.projects as any)?.[0]?.company_id ??
-            (riskToCheck?.projects as any)?.company_id;
+          (riskToCheck?.projects as { company_id: string })?.company_id;
+
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching risk ${riskId} for permission check or risk/project/company not found:`,
@@ -487,11 +486,10 @@ serve(async (req) => {
           .eq('id', riskId)
           .single();
 
-        // The join might return an array even with .single(), addressing TS2339
-        // deno-lint-ignore no-explicit-any
+        // Use type assertion for nested join result
         const projectCompanyId =
-          (riskToCheck?.projects as any)?.[0]?.company_id ??
-            (riskToCheck?.projects as any)?.company_id;
+          (riskToCheck?.projects as { company_id: string })?.company_id;
+
         if (checkError || !projectCompanyId) {
           console.error(
             `Error fetching risk ${riskId} for permission check or risk/project/company not found:`,
