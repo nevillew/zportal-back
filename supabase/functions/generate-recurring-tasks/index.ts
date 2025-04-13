@@ -142,21 +142,19 @@ serve(async (_req) => {
         }
         // --- End RRULE Parsing Logic ---
       } catch (parseError) {
-        const parseErrorMessage = parseError instanceof Error
-          ? parseError.message
-          : 'Unknown error parsing RRULE';
+        const error = parseError instanceof Error ? parseError : new Error(String(parseError));
         console.error(
-          `Error parsing recurrence rule for definition ${definition.id}:`,
-          parseErrorMessage,
+          `Error parsing recurrence rule or calculating occurrences for definition ${definition.id}:`,
+          error.message,
         );
         // Log failure and continue to next definition
         await logFailure(
           supabaseAdminClient,
-          'generate-recurring-tasks',
-          definition,
-          parseError,
+          'generate-recurring-tasks-parse', // More specific job name
+          { definition_id: definition.id, rule: definition.recurrence_rule }, // Log relevant info
+          error,
         );
-        continue;
+        continue; // Skip this definition
       }
 
       if (nextOccurrence) {
