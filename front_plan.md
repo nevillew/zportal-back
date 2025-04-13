@@ -169,6 +169,13 @@
 *   **Pagination:** Implement pagination (client or server-side).
 *   **Scope:** Provides a raw log view for administrative/troubleshooting purposes in V1.
 
+### 4.14 Background Job Monitoring (Admin Only - V1 Scope) (*Added Section*)
+*   **View:** `/app/admin/job-failures` (Protected route accessible via appropriate admin permission).
+*   **Functionality:** Client Component displaying `background_job_failures` records. Fetches data via PostgREST.
+*   **Display:** Key columns (Timestamp, Job Name, Status, Error Message). Allow viewing payload/stack trace details.
+*   **Filtering/Sorting:** Allow filtering by Job Name, Status, Date Range. Sort by Timestamp.
+*   **Actions:** Potentially allow marking failures as 'resolved' or 'ignored'. (Requires backend UPDATE permission/logic).
+
 ---
 
 ## 5. UI Components & Design System
