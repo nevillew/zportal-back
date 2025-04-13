@@ -419,7 +419,67 @@ serve(async (req) => {
       }
       default:
         return createMethodNotAllowedResponse();
-    }
+      } else if (req.method === 'POST' && documentId && pathParts[4] === 'approve') {
+        // POST /documents/{id}/approve
+        console.log(`Approving document ${documentId}`);
+
+        // --- Fetch current scope for permission check ---
+        const { data: currentDoc, error: fetchError } = await supabaseClient
+          .from('documents')
+          .select('company_id, project_id, status') // Also fetch status
+          .eq('id', documentId)
+          .single();
+
+        if (fetchError) return createNotFoundResponse('Document not found');
+        // --- End Fetch ---
+
+        // --- Permission Check ---
+        const canApprove = await checkDocumentPermission(
+          supabaseClient,
+          user.id,
+          'document:approve', // Specific permission for approval
+          currentDoc.company_id,
+          currentDoc.project_id,
+        );
+        if (!canApprove) {
+          return createForbiddenResponse(
+            'Not authorized to approve this document',
+          );
+        }
+        // --- End Permission Check ---
+
+        // --- Update Document Status ---
+        const { data: approvedDoc, error: approveError } = await supabaseClient
+          .from('documents')
+          .update({
+            status: 'Approved', // Set status
+            is_approved: true,
+            approved_by_user_id: user.id,
+            approved_at: new Date().toISOString(),
+          })
+          .eq('id', documentId)
+          .select() // Return updated document
+          .single();
+
+        if (approveError) {
+          console.error(`Error approving document ${documentId}:`, approveError);
+          if (approveError.code === 'PGRST204') {
+            return createNotFoundResponse('Document not found or update failed');
+          }
+          throw approveError; // Let main handler catch other errors
+        }
+        // --- End Update ---
+
+        console.log(`Successfully approved document ${documentId} by user ${user.id}`);
+        return new Response(JSON.stringify(approvedDoc), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } else {
+        // Fallback for unhandled methods/paths
+        return createMethodNotAllowedResponse();
+      }
+    } // End switch
   } catch (error) {
     // Handle potential database errors (unique constraints, check violations, etc.)
     if (error.code) { // Check if it looks like a PostgrestError

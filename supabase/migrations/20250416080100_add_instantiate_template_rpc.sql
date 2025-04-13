@@ -57,6 +57,9 @@ DECLARE
     v_new_section_id uuid;
     v_new_task_id uuid;
     v_custom_field_values_to_insert jsonb[] := ARRAY[]::jsonb[]; -- Array to collect CF values
+    v_resolved_placeholders jsonb := p_placeholder_values; -- Start with user-provided values
+    v_defined_placeholder RECORD;
+    v_company_cf_value jsonb;
 BEGIN
     -- Basic input validation (can add more checks)
     IF p_template_version_id IS NULL OR p_target_company_id IS NULL OR p_new_project_name IS NULL THEN
@@ -81,6 +84,59 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Target Company % not found.', p_target_company_id;
     END IF;
+
+    -- *** Placeholder Resolution Logic ***
+    RAISE NOTICE 'Resolving placeholders...';
+    -- 1. Add standard company fields to resolved placeholders if not already provided
+    v_resolved_placeholders := v_resolved_placeholders || jsonb_build_object(
+        'company_name', v_company_data.name
+        -- Add other standard company fields as needed (e.g., 'company_logo_url', v_company_data.logo_url)
+    );
+
+    -- 2. Resolve placeholders defined in the template version
+    IF v_template_version.defined_placeholders IS NOT NULL THEN
+        FOR v_defined_placeholder IN SELECT * FROM jsonb_array_elements(v_template_version.defined_placeholders) LOOP
+            DECLARE
+                placeholder_key text := v_defined_placeholder.value->>'key';
+                placeholder_source text := v_defined_placeholder.value->>'source';
+                source_parts text[];
+                source_type text;
+                source_field text;
+                resolved_value text;
+            BEGIN
+                -- Skip if already provided by user
+                IF jsonb_exists(v_resolved_placeholders, placeholder_key) THEN
+                    CONTINUE;
+                END IF;
+
+                IF placeholder_source IS NULL THEN CONTINUE; END IF;
+
+                -- Parse source (e.g., "company.custom_field:main_contact")
+                source_parts := string_to_array(placeholder_source, ':');
+                source_type := source_parts[1];
+                source_field := source_parts[2];
+
+                IF source_type = 'company.custom_field' AND source_field IS NOT NULL THEN
+                    -- Fetch company custom field value
+                    SELECT cfv.value INTO v_company_cf_value
+                    FROM public.custom_field_values cfv
+                    JOIN public.custom_field_definitions cfd ON cfv.definition_id = cfd.id
+                    WHERE cfv.entity_id = p_target_company_id
+                      AND cfd.entity_type = 'company'
+                      AND cfd.name = source_field;
+
+                    -- Add to resolved placeholders (as text for simple replacement)
+                    IF v_company_cf_value IS NOT NULL THEN
+                        v_resolved_placeholders := v_resolved_placeholders || jsonb_build_object(placeholder_key, v_company_cf_value);
+                    END IF;
+                -- Add ELSIF for other source types (e.g., 'project.custom_field' - though less common at project creation)
+                END IF;
+            END;
+        END LOOP;
+    END IF;
+    RAISE NOTICE 'Resolved Placeholders: %', v_resolved_placeholders;
+    -- *** End Placeholder Resolution Logic ***
+
 
     -- *** BEGIN TRANSACTION LOGIC ***
     -- (Implicit transaction in PL/pgSQL function unless EXCEPTION is caught and handled)
@@ -108,8 +164,8 @@ BEGIN
         WHERE project_template_version_id = p_template_version_id
         ORDER BY "order" ASC
     LOOP
-        -- Resolve placeholders (simple version)
-        v_resolved_section_name := resolve_sql_placeholders(v_section_template.name, p_placeholder_values);
+        -- Resolve placeholders using enhanced map
+        v_resolved_section_name := resolve_sql_placeholders(v_section_template.name, v_resolved_placeholders);
 
         INSERT INTO public.sections (
             project_id, section_template_id, name, type, "order", is_public, status
@@ -128,8 +184,9 @@ BEGIN
             WHERE section_template_id = v_section_template.id
             ORDER BY "order" ASC
         LOOP
-            v_resolved_task_name := resolve_sql_placeholders(v_task_template.name, p_placeholder_values);
-            v_resolved_task_description := resolve_sql_placeholders(v_task_template.description, p_placeholder_values);
+            -- Resolve placeholders using enhanced map
+            v_resolved_task_name := resolve_sql_placeholders(v_task_template.name, v_resolved_placeholders);
+            v_resolved_task_description := resolve_sql_placeholders(v_task_template.description, v_resolved_placeholders);
 
             INSERT INTO public.tasks (
                 section_id, task_template_id, name, description, "order", status,
