@@ -1,4 +1,4 @@
-// deno-lint-ignore-file no-explicit-any
+// deno-lint-ignore-file
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import {
   createClient,
@@ -299,7 +299,9 @@ serve(async (req) => {
           console.warn(
             `User ${user.id} attempted to update comment ${commentId} owned by ${existingComment.user_id}`,
           );
-          return createForbiddenResponse('You can only update your own comments');
+          return createForbiddenResponse(
+            'You can only update your own comments',
+          );
         }
         // --- End Ownership Check ---
 
@@ -365,7 +367,9 @@ serve(async (req) => {
           console.warn(
             `User ${user.id} attempted to delete comment ${commentId} owned by ${existingComment.user_id}`,
           );
-          return createForbiddenResponse('You can only delete your own comments');
+          return createForbiddenResponse(
+            'You can only delete your own comments',
+          );
         }
         // --- End Ownership Check ---
 

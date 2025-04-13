@@ -1,5 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  createClient,
+  SupabaseClient,
+} from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
   createBadRequestResponse,
@@ -20,15 +23,16 @@ async function checkCustomFieldPermission(
   userId: string,
 ): Promise<boolean> {
   // Use the has_permission RPC function to check for admin:manage_custom_fields permission
-  const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-    'has_permission',
-    {
-      user_id: userId,
-      company_id: '00000000-0000-0000-0000-000000000000', // System-wide permission check
-      permission_key: 'admin:manage_custom_fields',
-    },
-  );
-  
+  const { data: hasPermission, error: permissionError } = await supabaseClient
+    .rpc(
+      'has_permission',
+      {
+        user_id: userId,
+        company_id: '00000000-0000-0000-0000-000000000000', // System-wide permission check
+        permission_key: 'admin:manage_custom_fields',
+      },
+    );
+
   if (permissionError) {
     console.error(
       `Error checking custom field definition permission for user ${userId}:`,
@@ -36,7 +40,7 @@ async function checkCustomFieldPermission(
     );
     return false;
   }
-  
+
   return hasPermission === true;
 }
 
@@ -75,7 +79,10 @@ serve(async (req) => {
 
     // Check permissions for modification methods
     if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-      const hasPermission = await checkCustomFieldPermission(supabaseClient, user.id);
+      const hasPermission = await checkCustomFieldPermission(
+        supabaseClient,
+        user.id,
+      );
       if (!hasPermission) {
         console.error(
           `User ${user.id} is not authorized to modify custom field definitions.`,
@@ -99,7 +106,10 @@ serve(async (req) => {
             .single();
 
           if (error) {
-            console.error(`Error fetching definition ${definitionId}:`, error.message);
+            console.error(
+              `Error fetching definition ${definitionId}:`,
+              error.message,
+            );
             throw error; // Let the main handler catch it
           }
           if (!data) {
@@ -171,10 +181,12 @@ serve(async (req) => {
 
         if (error) {
           console.error('Error creating definition:', error.message);
-          
+
           // Handle specific database errors
           if (error.code === '23505') { // PostgreSQL unique violation code
-            const constraintMatch = error.message.match(/violates unique constraint "(.+?)"/);
+            const constraintMatch = error.message.match(
+              /violates unique constraint "(.+?)"/,
+            );
             const constraint = constraintMatch ? constraintMatch[1] : 'unknown';
             if (constraint.includes('name')) {
               return createConflictResponse(
@@ -190,7 +202,9 @@ serve(async (req) => {
               `Invalid field value: ${error.message}. Please check that entity_type and field_type are valid values.`,
             );
           } else if (error.code === '23502') { // Not null violation
-            const columnMatch = error.message.match(/null value in column "(.+?)"/);
+            const columnMatch = error.message.match(
+              /null value in column "(.+?)"/,
+            );
             const column = columnMatch ? columnMatch[1] : 'unknown';
             return createBadRequestResponse(`The ${column} field is required.`);
           }
@@ -252,13 +266,17 @@ serve(async (req) => {
           );
           // Handle specific errors
           if (error.code === 'PGRST204') { // No rows updated/selected
-            return createNotFoundResponse('Definition not found or update failed');
+            return createNotFoundResponse(
+              'Definition not found or update failed',
+            );
           } else if (error.code === '23514') { // Check constraint violation
             return createBadRequestResponse(
               `Invalid field value: ${error.message}. Please check that field_type and other values are valid.`,
             );
           } else if (error.code === '23502') { // Not null violation
-            const columnMatch = error.message.match(/null value in column "(.+?)"/);
+            const columnMatch = error.message.match(
+              /null value in column "(.+?)"/,
+            );
             const column = columnMatch ? columnMatch[1] : 'unknown';
             return createBadRequestResponse(`The ${column} field is required.`);
           }
@@ -289,7 +307,9 @@ serve(async (req) => {
           );
           // Handle specific database errors
           if (error.code === 'PGRST204') { // No rows deleted
-            return createNotFoundResponse('Custom field definition not found or already deleted');
+            return createNotFoundResponse(
+              'Custom field definition not found or already deleted',
+            );
           } else if (error.code === '23503') { // Foreign key violation
             return createConflictResponse(
               'Cannot delete this custom field definition because it is in use. Delete all field values using this definition first.',

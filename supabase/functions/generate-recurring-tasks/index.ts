@@ -2,11 +2,10 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import {
   createClient,
-  createClient,
   SupabaseClient,
 } from 'https://esm.sh/@supabase/supabase-js@2';
 import { RRule } from 'rrule-deno'; // Import the library
-import { corsHeaders } from '../_shared/cors.ts'; // Import CORS headers
+import { corsHeaders as _corsHeaders } from '../_shared/cors.ts'; // Import CORS headers but not used
 import { createInternalServerErrorResponse } from '../_shared/validation.ts'; // Import error helper
 
 console.log('Generate Recurring Tasks function started');
@@ -47,7 +46,9 @@ serve(async (_req) => {
     );
     // Log to background_job_failures table if possible, or just return error
     // await logFailure('generate-recurring-tasks', null, `Client setup error: ${setupErrorMessage}`);
-    return createInternalServerErrorResponse('Internal Server Error during setup');
+    return createInternalServerErrorResponse(
+      'Internal Server Error during setup',
+    );
   }
 
   // --- Main Logic ---
@@ -256,34 +257,25 @@ serve(async (_req) => {
       supabaseAdminClient,
       'generate-recurring-tasks',
       null,
-      error,
-    );
-    // Ensure logging happens even if the function returns early due to error
-    await logFailure(
-      supabaseAdminClient, // Ensure client is available in catch scope
-      'generate-recurring-tasks',
-      null, // No specific definition payload for general error
       error instanceof Error ? error : new Error(String(error)),
     );
-    return createInternalServerErrorResponse(errorMessage, error instanceof Error ? error : undefined);
+    return createInternalServerErrorResponse(
+      errorMessage,
+      error instanceof Error ? error : undefined,
+    );
   }
 });
 
 // --- Helper Function to Log Failures ---
 async function logFailure(
-  client: SupabaseClient | null, // Allow null client in case setup failed
+  client: SupabaseClient,
+  jobName: string,
   payload: any | null,
   error: Error | unknown, // Accept unknown type
 ) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const stackTrace = error instanceof Error ? error.stack : undefined;
   console.error(`Logging failure for job ${jobName}:`, errorMessage);
-
-  // Check if client is available before attempting to log to DB
-  if (!client) {
-    console.error('!!! Supabase client not available. Cannot log failure to database.');
-    return;
-  }
 
   try {
     const { error: logInsertError } = await client

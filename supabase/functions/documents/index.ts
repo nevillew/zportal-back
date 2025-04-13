@@ -33,7 +33,10 @@ async function checkDocumentPermission(
     .eq('user_id', userId)
     .single();
   if (profileError) {
-    console.error('Error fetching user profile for permission check:', profileError);
+    console.error(
+      'Error fetching user profile for permission check:',
+      profileError,
+    );
     return false; // Default to no permission on error
   }
   if (profile?.is_staff) return true;
@@ -48,7 +51,10 @@ async function checkDocumentPermission(
       .eq('id', projectId)
       .single();
     if (projectError || !projectData) {
-      console.error(`Error fetching project ${projectId} for permission check:`, projectError);
+      console.error(
+        `Error fetching project ${projectId} for permission check:`,
+        projectError,
+      );
       return false; // Cannot determine company, deny permission
     }
     targetCompanyId = projectData.company_id;
@@ -60,7 +66,9 @@ async function checkDocumentPermission(
   }
 
   if (!targetCompanyId) {
-    console.error('Could not determine target company ID for permission check.');
+    console.error(
+      'Could not determine target company ID for permission check.',
+    );
     return false;
   }
 
@@ -75,13 +83,15 @@ async function checkDocumentPermission(
   );
 
   if (permissionError) {
-    console.error(`Error checking permission '${permissionKey}' for user ${userId} on company ${targetCompanyId}:`, permissionError);
+    console.error(
+      `Error checking permission '${permissionKey}' for user ${userId} on company ${targetCompanyId}:`,
+      permissionError,
+    );
     return false;
   }
 
   return hasPermission === true;
 }
-
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -137,7 +147,9 @@ serve(async (req) => {
 
           if (error) throw error;
           if (!data) {
-            return createNotFoundResponse('Document not found or access denied');
+            return createNotFoundResponse(
+              'Document not found or access denied',
+            );
           }
 
           return new Response(JSON.stringify(data), {
@@ -157,7 +169,10 @@ serve(async (req) => {
           if (projectIdFilter) {
             query = query.eq('project_id', projectIdFilter);
           } else if (companyIdFilter) {
-            query = query.eq('company_id', companyIdFilter).is('project_id', null); // Company-scoped only
+            query = query.eq('company_id', companyIdFilter).is(
+              'project_id',
+              null,
+            ); // Company-scoped only
           } else {
             // If no filter, default to showing global OR user's company/project docs
             // RLS should handle this filtering implicitly based on user context
@@ -184,14 +199,18 @@ serve(async (req) => {
           if (!body.type) errors.type = ['Type is required']; // TODO: Validate enum
           // Validate scope: Ensure only one of company_id or project_id is set, or both are null
           if (body.company_id && body.project_id) {
-            errors.scope = ['Document cannot be scoped to both a company and a project'];
+            errors.scope = [
+              'Document cannot be scoped to both a company and a project',
+            ];
           }
 
           if (Object.keys(errors).length > 0) {
             return createValidationErrorResponse(errors);
           }
         } catch (e) {
-          return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+          return createBadRequestResponse(
+            e instanceof Error ? e.message : 'Invalid JSON body',
+          );
         }
 
         // --- Permission Check ---
@@ -203,7 +222,9 @@ serve(async (req) => {
           body.project_id,
         );
         if (!canCreate) {
-          return createForbiddenResponse('Not authorized to create documents in this scope');
+          return createForbiddenResponse(
+            'Not authorized to create documents in this scope',
+          );
         }
         // --- End Permission Check ---
 
@@ -237,10 +258,14 @@ serve(async (req) => {
         let body: any;
         try {
           body = await req.json();
-          if (Object.keys(body).length === 0) throw new Error('No update data provided');
+          if (Object.keys(body).length === 0) {
+            throw new Error('No update data provided');
+          }
           // TODO: Add validation for fields like type, status enums
         } catch (e) {
-          return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+          return createBadRequestResponse(
+            e instanceof Error ? e.message : 'Invalid JSON body',
+          );
         }
 
         // --- Fetch current scope for permission check ---
@@ -262,7 +287,9 @@ serve(async (req) => {
           currentDoc.project_id,
         );
         if (!canUpdate) {
-          return createForbiddenResponse('Not authorized to update this document');
+          return createForbiddenResponse(
+            'Not authorized to update this document',
+          );
         }
         // --- End Permission Check ---
 
@@ -276,8 +303,10 @@ serve(async (req) => {
           version: body.version, // Simple version bump allowed?
           // Exclude company_id, project_id, created_by_user_id
         };
-        Object.keys(allowedUpdates).forEach(key => {
-          if ((allowedUpdates as any)[key] === undefined) delete (allowedUpdates as any)[key];
+        Object.keys(allowedUpdates).forEach((key) => {
+          if ((allowedUpdates as any)[key] === undefined) {
+            delete (allowedUpdates as any)[key];
+          }
         });
 
         const { data, error } = await supabaseClient
@@ -288,7 +317,9 @@ serve(async (req) => {
           .single();
 
         if (error) {
-          if (error.code === 'PGRST204') return createNotFoundResponse('Document not found');
+          if (error.code === 'PGRST204') {
+            return createNotFoundResponse('Document not found');
+          }
           throw error; // Handle specific DB errors in main catch
         }
 
@@ -322,7 +353,9 @@ serve(async (req) => {
           currentDoc.project_id,
         );
         if (!canDelete) {
-          return createForbiddenResponse('Not authorized to delete this document');
+          return createForbiddenResponse(
+            'Not authorized to delete this document',
+          );
         }
         // --- End Permission Check ---
 
@@ -332,9 +365,15 @@ serve(async (req) => {
           .eq('id', documentId);
 
         if (error) {
-          if (error.code === 'PGRST204') return createNotFoundResponse('Document not found');
+          if (error.code === 'PGRST204') {
+            return createNotFoundResponse('Document not found');
+          }
           // Handle FK constraints (e.g., pages referencing document)
-          if (error.code === '23503') return createBadRequestResponse('Cannot delete document with existing pages or references.');
+          if (error.code === '23503') {
+            return createBadRequestResponse(
+              'Cannot delete document with existing pages or references.',
+            );
+          }
           throw error;
         }
 
@@ -346,16 +385,23 @@ serve(async (req) => {
   } catch (error) {
     // Handle potential database errors (unique constraints, check violations, etc.)
     if (error.code) { // Check if it looks like a PostgrestError
-        console.error('Database Error:', error.message, error.code, error.details);
-        if (error.code === '23505') { // Unique violation
-            return createConflictResponse(`Record already exists: ${error.details}`);
-        }
-        if (error.code === '23514') { // Check constraint violation
-            return createBadRequestResponse(`Invalid input: ${error.details}`);
-        }
-        if (error.code === '23503') { // Foreign key violation
-            return createBadRequestResponse(`Invalid reference: ${error.details}`);
-        }
+      console.error(
+        'Database Error:',
+        error.message,
+        error.code,
+        error.details,
+      );
+      if (error.code === '23505') { // Unique violation
+        return createConflictResponse(
+          `Record already exists: ${error.details}`,
+        );
+      }
+      if (error.code === '23514') { // Check constraint violation
+        return createBadRequestResponse(`Invalid input: ${error.details}`);
+      }
+      if (error.code === '23503') { // Foreign key violation
+        return createBadRequestResponse(`Invalid reference: ${error.details}`);
+      }
     }
     // Use the standardized internal server error response for other errors
     return createInternalServerErrorResponse(undefined, error);
