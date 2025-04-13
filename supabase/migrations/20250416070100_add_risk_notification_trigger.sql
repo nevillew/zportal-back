@@ -115,10 +115,14 @@ BEGIN
         )
         INTO v_response;
         RAISE LOG 'Risk notification request sent for risk %. Response: %', NEW.id, v_response;
+         IF v_response IS NULL OR (v_response->>'status_code')::int >= 300 THEN
+             RAISE WARNING 'Notification function call failed for risk %. Status: %, Body: %', NEW.id, v_response->>'status_code', v_response->>'body';
+             PERFORM public.log_background_job_failure('risk_notification', notification_payload, 'HTTP ' || COALESCE((v_response->>'status_code')::text, 'request failed'), NULL);
+        END IF;
     EXCEPTION
         WHEN others THEN
             RAISE WARNING 'Failed to send risk notification for risk %: %', NEW.id, SQLERRM;
-            -- Optionally log to background_job_failures here
+            PERFORM public.log_background_job_failure('risk_notification', notification_payload, SQLERRM, NULL);
     END;
 
     RETURN NEW; -- Result is ignored for AFTER triggers

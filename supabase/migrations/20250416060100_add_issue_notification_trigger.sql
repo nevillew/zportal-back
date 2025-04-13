@@ -115,10 +115,14 @@ BEGIN
         )
         INTO v_response;
         RAISE LOG 'Issue notification request sent for issue %. Response: %', NEW.id, v_response;
+        IF v_response IS NULL OR (v_response->>'status_code')::int >= 300 THEN
+             RAISE WARNING 'Notification function call failed for issue %. Status: %, Body: %', NEW.id, v_response->>'status_code', v_response->>'body';
+             PERFORM public.log_background_job_failure('issue_notification', notification_payload, 'HTTP ' || COALESCE((v_response->>'status_code')::text, 'request failed'), NULL);
+        END IF;
     EXCEPTION
         WHEN others THEN
             RAISE WARNING 'Failed to send issue notification for issue %: %', NEW.id, SQLERRM;
-            -- Optionally log to background_job_failures here
+            PERFORM public.log_background_job_failure('issue_notification', notification_payload, SQLERRM, NULL);
     END;
 
     RETURN NEW; -- Result is ignored for AFTER triggers

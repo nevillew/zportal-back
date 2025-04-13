@@ -419,7 +419,12 @@ serve(async (req) => {
       error,
     );
     // Log failure to background_job_failures or Sentry
-    // await logFailure(supabaseAdminClient, 'calendly-webhook-handler', payload, error);
+    await logFailure(
+      supabaseAdminClient,
+      'calendly-webhook-handler',
+      payload,
+      error instanceof Error ? error : new Error(String(error)),
+    );
     return createInternalServerErrorResponse(processErrorMessage, error);
   }
 });

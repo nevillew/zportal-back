@@ -488,7 +488,27 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error creating task:', insertError.message);
-          // TODO(db-error): Check for specific DB errors (e.g., FK violation, unique constraint) and return appropriate 4xx status codes.
+          if (insertError.code === '23503') { // Foreign key violation
+            const constraint = insertError.message.includes('section_id')
+              ? 'section_id'
+              : insertError.message.includes('milestone_id')
+              ? 'milestone_id'
+              : insertError.message.includes('parent_task_id')
+              ? 'parent_task_id'
+              : insertError.message.includes('assigned_to_id')
+              ? 'assigned_to_id'
+              : insertError.message.includes('depends_on_task_id')
+              ? 'depends_on_task_id'
+              : 'unknown foreign key';
+            return createBadRequestResponse(
+              `Invalid reference: ${constraint} refers to a record that doesn't exist`,
+            );
+          } else if (insertError.code === '23505') { // Unique constraint (if any)
+            return createConflictResponse(
+              `Task creation failed due to unique constraint: ${insertError.details}`,
+            );
+          }
+          // Handle other specific DB errors
           throw insertError;
         }
 
@@ -1057,7 +1077,15 @@ serve(async (req) => {
 
         if (deleteError) {
           console.error(`Error deleting task ${taskId}:`, deleteError.message);
-          // TODO(db-error): Handle specific DB errors (e.g., restricted delete due to FK dependency) with appropriate 4xx status codes (e.g., 409 Conflict).
+          if (deleteError.code === 'PGRST204') { // Not Found
+            return createNotFoundResponse('Task not found or already deleted');
+          }
+          if (deleteError.code === '23503') { // Foreign key violation (e.g., sub-tasks, dependencies)
+            return createConflictResponse(
+              'Cannot delete task with existing dependencies or sub-tasks.',
+            );
+          }
+          // Handle other specific DB errors
           throw deleteError;
         }
 
