@@ -17,7 +17,11 @@ import {
 console.log('Feedback function started');
 
 interface FeedbackPayload {
-  feedback_type: 'bug_report' | 'feature_request' | 'general_comment' | 'rating';
+  feedback_type:
+    | 'bug_report'
+    | 'feature_request'
+    | 'general_comment'
+    | 'rating';
   content: string;
   rating?: number; // Optional, only relevant for 'rating' type
   context?: Record<string, any>; // Optional context
@@ -67,10 +71,19 @@ serve(async (req) => {
     try {
       body = await req.json();
       const errors: ValidationErrors = {};
-      const allowedTypes = ['bug_report', 'feature_request', 'general_comment', 'rating'];
+      const allowedTypes = [
+        'bug_report',
+        'feature_request',
+        'general_comment',
+        'rating',
+      ];
 
       if (!body.feedback_type || !allowedTypes.includes(body.feedback_type)) {
-        errors.feedback_type = [`Feedback type is required and must be one of: ${allowedTypes.join(', ')}`];
+        errors.feedback_type = [
+          `Feedback type is required and must be one of: ${
+            allowedTypes.join(', ')
+          }`,
+        ];
       }
       if (!body.content || body.content.trim().length === 0) {
         errors.content = ['Feedback content cannot be empty'];
@@ -78,7 +91,10 @@ serve(async (req) => {
       if (body.feedback_type === 'rating') {
         if (body.rating === undefined || body.rating === null) {
           errors.rating = ['Rating is required for feedback type "rating"'];
-        } else if (typeof body.rating !== 'number' || !Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5) {
+        } else if (
+          typeof body.rating !== 'number' || !Number.isInteger(body.rating) ||
+          body.rating < 1 || body.rating > 5
+        ) {
           errors.rating = ['Rating must be an integer between 1 and 5'];
         }
       } else if (body.rating !== undefined && body.rating !== null) {
@@ -90,7 +106,9 @@ serve(async (req) => {
         return createValidationErrorResponse(errors);
       }
     } catch (e) {
-      return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+      return createBadRequestResponse(
+        e instanceof Error ? e.message : 'Invalid JSON body',
+      );
     }
 
     // --- Insert Feedback ---
@@ -112,18 +130,25 @@ serve(async (req) => {
       console.error('Error inserting feedback:', insertError.message);
       // Handle specific DB errors if needed (e.g., check constraint violation)
       if (insertError.code === '23514') { // Check constraint violation
-        return createBadRequestResponse(`Invalid input: ${insertError.details}`);
+        return createBadRequestResponse(
+          `Invalid input: ${insertError.details}`,
+        );
       }
       throw new Error(`Failed to submit feedback: ${insertError.message}`);
     }
     // --- End Insert Feedback ---
 
     console.log(`Successfully submitted feedback ${newFeedback.id}`);
-    return new Response(JSON.stringify({ message: 'Feedback submitted successfully', id: newFeedback.id }), {
-      status: 201, // Created
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return new Response(
+      JSON.stringify({
+        message: 'Feedback submitted successfully',
+        id: newFeedback.id,
+      }),
+      {
+        status: 201, // Created
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error) {
     // Use the standardized internal server error response
     return createInternalServerErrorResponse(undefined, error);

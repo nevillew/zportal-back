@@ -1,0 +1,428 @@
+Warning: "files" configuration in "lint" was removed in Deno 2, use "include" and "exclude" instead.
+error[require-await]: Async function 'getSecret' has no 'await' expression or 'await using' declaration.
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/calendly-webhook-handler/index.ts:22:1
+   | 
+22 | async function getSecret(
+   | ^^^^^
+   = hint: Remove 'async' keyword from the function or use 'await' expression or 'await using' declaration inside.
+
+  docs: https://docs.deno.com/lint/rules/require-await
+
+
+error[no-unused-vars]: `client` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/calendly-webhook-handler/index.ts:23:3
+   | 
+23 |   client: SupabaseClient,
+   |   ^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_client`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[require-await]: Async function 'verifySignature' has no 'await' expression or 'await using' declaration.
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/calendly-webhook-handler/index.ts:45:1
+   | 
+45 | async function verifySignature(
+   | ^^^^^
+   = hint: Remove 'async' keyword from the function or use 'await' expression or 'await using' declaration inside.
+
+  docs: https://docs.deno.com/lint/rules/require-await
+
+
+error[no-unused-vars]: `secret` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/calendly-webhook-handler/index.ts:46:3
+   | 
+46 |   secret: string,
+   |   ^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_secret`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[no-unused-vars]: `rawBody` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/calendly-webhook-handler/index.ts:48:3
+   | 
+48 |   rawBody: string,
+   |   ^^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_rawBody`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[no-unused-vars]: `timestamp` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/calendly-webhook-handler/index.ts:66:9
+   | 
+66 |   const timestamp = timestampPart.split('=')[1];
+   |         ^^^^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_timestamp`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[no-unused-vars]: `PostgrestError` is never used
+ --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/instantiate-project-template/index.ts:5:3
+  | 
+5 |   PostgrestError,
+  |   ^^^^^^^^^^^^^^
+  = hint: If this is intentional, alias it with an underscore like `PostgrestError as _PostgrestError`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/instantiate-project-template/index.ts:51:1
+   | 
+51 | // deno-lint-ignore no-explicit-any
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[require-await]: Async function 'resolvePlaceholders' has no 'await' expression or 'await using' declaration.
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/instantiate-project-template/index.ts:52:1
+   | 
+52 | async function resolvePlaceholders(
+   | ^^^^^
+   = hint: Remove 'async' keyword from the function or use 'await' expression or 'await using' declaration inside.
+
+  docs: https://docs.deno.com/lint/rules/require-await
+
+
+error[no-unused-vars]: `resolvePlaceholders` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/instantiate-project-template/index.ts:52:16
+   | 
+52 | async function resolvePlaceholders(
+   |                ^^^^^^^^^^^^^^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_resolvePlaceholders`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+ --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/messaging/index.ts:1:1
+  | 
+1 | // deno-lint-ignore-file no-explicit-any
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-unused-vars]: `createNotFoundResponse` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/messaging/index.ts:13:3
+   | 
+13 |   createNotFoundResponse,
+   |   ^^^^^^^^^^^^^^^^^^^^^^
+   = hint: If this is intentional, alias it with an underscore like `createNotFoundResponse as _createNotFoundResponse`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+ --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/accept-invite/index.ts:1:1
+  | 
+1 | // deno-lint-ignore-file no-explicit-any
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-unused-vars]: `createConflictResponse` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/accept-invite/index.ts:10:3
+   | 
+10 |   createConflictResponse,
+   |   ^^^^^^^^^^^^^^^^^^^^^^
+   = hint: If this is intentional, alias it with an underscore like `createConflictResponse as _createConflictResponse`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[require-await]: Async function 'getSecret' has no 'await' expression or 'await using' declaration.
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/generate-certificate/index.ts:21:1
+   | 
+21 | async function getSecret(
+   | ^^^^^
+   = hint: Remove 'async' keyword from the function or use 'await' expression or 'await using' declaration inside.
+
+  docs: https://docs.deno.com/lint/rules/require-await
+
+
+error[no-unused-vars]: `client` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/generate-certificate/index.ts:22:3
+   | 
+22 |   client: SupabaseClient,
+   |   ^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_client`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[no-unused-vars]: `createForbiddenResponse` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/send-notification/index.ts:10:3
+   | 
+10 |   createForbiddenResponse,
+   |   ^^^^^^^^^^^^^^^^^^^^^^^
+   = hint: If this is intentional, alias it with an underscore like `createForbiddenResponse as _createForbiddenResponse`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[require-await]: Async function 'getSecret' has no 'await' expression or 'await using' declaration.
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/send-notification/index.ts:35:1
+   | 
+35 | async function getSecret(
+   | ^^^^^
+   = hint: Remove 'async' keyword from the function or use 'await' expression or 'await using' declaration inside.
+
+  docs: https://docs.deno.com/lint/rules/require-await
+
+
+error[no-unused-vars]: `client` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/send-notification/index.ts:36:3
+   | 
+36 |   client: SupabaseClient,
+   |   ^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_client`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+ --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/issues/index.ts:1:1
+  | 
+1 | // deno-lint-ignore-file no-explicit-any
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-unused-vars]: `claims` is never used
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sso-jit-provisioning/index.ts:121:17
+    | 
+121 |   const { user, claims } = payload;
+    |                 ^^^^^^
+    = hint: If this is intentional, prefix it with an underscore like `_claims`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[no-unused-vars]: `profile` is never used
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sso-jit-provisioning/index.ts:182:19
+    | 
+182 |     const { data: profile, error: profileUpsertError } =
+    |                   ^^^^^^^
+    = hint: If this is intentional, prefix it with an underscore like `_profile`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/risks/index.ts:256:9
+    | 
+256 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/risks/index.ts:329:9
+    | 
+329 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/risks/index.ts:332:37
+    | 
+332 |           (riskToCheck?.projects as any)?.[0]?.company_id ??
+    |                                     ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/risks/index.ts:333:39
+    | 
+333 |             (riskToCheck?.projects as any)?.company_id;
+    |                                       ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/risks/index.ts:491:9
+    | 
+491 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/risks/index.ts:493:37
+    | 
+493 |           (riskToCheck?.projects as any)?.[0]?.company_id ??
+    |                                     ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/risks/index.ts:494:39
+    | 
+494 |             (riskToCheck?.projects as any)?.company_id;
+    |                                       ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sections/index.ts:250:9
+    | 
+250 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sections/index.ts:252:40
+    | 
+252 |           (sectionToCheck?.projects as any)?.[0]?.company_id ??
+    |                                        ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sections/index.ts:253:42
+    | 
+253 |             (sectionToCheck?.projects as any)?.company_id;
+    |                                          ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sections/index.ts:367:9
+    | 
+367 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sections/index.ts:369:40
+    | 
+369 |           (sectionToCheck?.projects as any)?.[0]?.company_id ??
+    |                                        ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/sections/index.ts:370:42
+    | 
+370 |             (sectionToCheck?.projects as any)?.company_id;
+    |                                          ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+error[require-await]: Async function 'getSecret' has no 'await' expression or 'await using' declaration.
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:20:1
+   | 
+20 | async function getSecret(
+   | ^^^^^
+   = hint: Remove 'async' keyword from the function or use 'await' expression or 'await using' declaration inside.
+
+  docs: https://docs.deno.com/lint/rules/require-await
+
+
+error[no-unused-vars]: `client` is never used
+  --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:21:3
+   | 
+21 |   client: SupabaseClient,
+   |   ^^^^^^
+   = hint: If this is intentional, prefix it with an underscore like `_client`
+
+  docs: https://docs.deno.com/lint/rules/no-unused-vars
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:242:13
+    | 
+242 |             // deno-lint-ignore no-explicit-any
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:244:15
+    | 
+244 |               // deno-lint-ignore no-explicit-any
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:440:11
+    | 
+440 |           // deno-lint-ignore no-explicit-any
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:605:9
+    | 
+605 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:648:9
+    | 
+648 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[ban-unused-ignore]: Ignore for code "no-explicit-any" was not used.
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/milestones/index.ts:817:9
+    | 
+817 |         // deno-lint-ignore no-explicit-any
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  docs: https://docs.deno.com/lint/rules/ban-unused-ignore
+
+
+error[no-explicit-any]: `any` type is not allowed
+   --> /Users/nevillewoller/Development/zportal/zportal-back/supabase/functions/projects/index.ts:189:31
+    | 
+189 |               (p.companies as any)?.name, // Handle potential array/object
+    |                               ^^^
+    = hint: Use a specific type other than `any`
+
+  docs: https://docs.deno.com/lint/rules/no-explicit-any
+
+
+Found 43 problems
+Checked 25 files

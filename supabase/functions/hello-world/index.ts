@@ -3,10 +3,10 @@
 // This enables autocomplete, go to definition, etc.
 
 // Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { corsHeaders } from "../_shared/cors.ts"; // Import CORS headers
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { corsHeaders } from '../_shared/cors.ts'; // Import CORS headers
 
-console.log("Hello from Functions!")
+console.log('Hello from Functions!');
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -21,7 +21,10 @@ Deno.serve(async (req) => {
     if (!name) {
       return new Response(
         JSON.stringify({ error: "Missing 'name' in request body" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
       );
     }
 
@@ -31,15 +34,19 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify(data),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Add CORS headers to actual response
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }, // Add CORS headers to actual response
     );
-
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error processing request';
-    console.error("Error processing request:", errorMessage);
+    const errorMessage = error instanceof Error
+      ? error.message
+      : 'Unknown error processing request';
+    console.error('Error processing request:', errorMessage);
     return new Response(
       JSON.stringify({ error: `Bad Request: ${errorMessage}` }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     );
   }
 });

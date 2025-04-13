@@ -303,22 +303,30 @@ serve(async (req) => {
           if (insertError.code === '23503') { // Foreign key violation
             // Attempt to clean up the uploaded storage file
             await supabaseClient.storage.from(BUCKET_NAME).remove([filePath]);
-            console.log(`Cleaned up orphaned storage file due to FK violation: ${filePath}`);
+            console.log(
+              `Cleaned up orphaned storage file due to FK violation: ${filePath}`,
+            );
             const constraint = insertError.message.includes('task_id')
               ? 'task_id'
               : insertError.message.includes('uploaded_by_user_id')
-                ? 'uploaded_by_user_id'
-                : 'unknown foreign key';
+              ? 'uploaded_by_user_id'
+              : 'unknown foreign key';
             return createBadRequestResponse(
               `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
           } else if (insertError.code === '23502') { // Not null violation
             // Attempt to clean up the uploaded storage file
             await supabaseClient.storage.from(BUCKET_NAME).remove([filePath]);
-            console.log(`Cleaned up orphaned storage file due to NOT NULL violation: ${filePath}`);
-            const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
+            console.log(
+              `Cleaned up orphaned storage file due to NOT NULL violation: ${filePath}`,
+            );
+            const columnMatch = insertError.message.match(
+              /null value in column "(.+?)"/,
+            );
             const column = columnMatch ? columnMatch[1] : 'unknown';
-            return createBadRequestResponse(`The ${column} field is required for file metadata.`);
+            return createBadRequestResponse(
+              `The ${column} field is required for file metadata.`,
+            );
           }
           // For other insert errors, throw a generic internal server error
           throw new Error(
@@ -452,7 +460,9 @@ serve(async (req) => {
           );
           // Handle specific database errors for metadata deletion
           if (deleteDbError.code === 'PGRST204') { // Not Found (already deleted or never existed)
-            return createNotFoundResponse('File record not found or already deleted');
+            return createNotFoundResponse(
+              'File record not found or already deleted',
+            );
           }
           // For other DB errors, let the main handler return 500
           throw new Error(`Database deletion failed: ${deleteDbError.message}`);

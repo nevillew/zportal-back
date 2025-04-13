@@ -107,7 +107,9 @@ serve(async (req) => {
 
           if (error) throw error;
           if (!data) {
-            return createNotFoundResponse('Announcement not found or access denied');
+            return createNotFoundResponse(
+              'Announcement not found or access denied',
+            );
           }
 
           return new Response(JSON.stringify(data), {
@@ -177,7 +179,9 @@ serve(async (req) => {
             target_company_id: body.target_company_id, // Optional
             target_role: body.target_role, // Optional
             created_by_user_id: user.id,
-            published_at: body.status === 'published' ? new Date().toISOString() : null,
+            published_at: body.status === 'published'
+              ? new Date().toISOString()
+              : null,
           })
           .select()
           .single();
@@ -201,8 +205,13 @@ serve(async (req) => {
             throw new Error('No update data provided');
           }
           const errors: ValidationErrors = {};
-          if (body.status && !['draft', 'published', 'archived'].includes(body.status)) {
-            errors.status = ['Invalid status. Must be draft, published, or archived.'];
+          if (
+            body.status &&
+            !['draft', 'published', 'archived'].includes(body.status)
+          ) {
+            errors.status = [
+              'Invalid status. Must be draft, published, or archived.',
+            ];
           }
           // TODO: Add other validation if needed
 

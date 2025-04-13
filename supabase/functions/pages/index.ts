@@ -30,7 +30,10 @@ async function checkDocumentAccess(
     p_document_id: documentId,
   });
   if (error) {
-    console.error(`Error checking document access via RPC for doc ${documentId}:`, error);
+    console.error(
+      `Error checking document access via RPC for doc ${documentId}:`,
+      error,
+    );
     return false;
   }
   return data === true;
@@ -48,7 +51,10 @@ async function checkDocumentManagement(
     p_document_id: documentId,
   });
   if (error) {
-    console.error(`Error checking document management via RPC for doc ${documentId}:`, error);
+    console.error(
+      `Error checking document management via RPC for doc ${documentId}:`,
+      error,
+    );
     return false;
   }
   return data === true;
@@ -120,11 +126,17 @@ serve(async (req) => {
           if (!data) return createNotFoundResponse('Page not found');
 
           // Permission check
-          const canAccess = await checkDocumentAccess(supabaseClient, user.id, data.document_id);
-          if (!canAccess) return createForbiddenResponse('Access denied to parent document');
+          const canAccess = await checkDocumentAccess(
+            supabaseClient,
+            user.id,
+            data.document_id,
+          );
+          if (!canAccess) {
+            return createForbiddenResponse('Access denied to parent document');
+          }
 
           // Remove document_id if not needed in response
-          const { document_id, ...pageData } = data;
+          const { document_id: _document_id, ...pageData } = data;
 
           return new Response(JSON.stringify(pageData), {
             status: 200,
@@ -135,8 +147,14 @@ serve(async (req) => {
           console.log(`Listing pages for document ${documentId}`);
 
           // Permission check on parent document
-          const canAccess = await checkDocumentAccess(supabaseClient, user.id, documentId);
-          if (!canAccess) return createForbiddenResponse('Access denied to parent document');
+          const canAccess = await checkDocumentAccess(
+            supabaseClient,
+            user.id,
+            documentId,
+          );
+          if (!canAccess) {
+            return createForbiddenResponse('Access denied to parent document');
+          }
 
           // Fetch pages
           const { data, error } = await supabaseClient
@@ -157,7 +175,9 @@ serve(async (req) => {
       }
       case 'POST': { // Create page for a document
         if (!documentId) {
-          return createBadRequestResponse('Document ID is required to create a page');
+          return createBadRequestResponse(
+            'Document ID is required to create a page',
+          );
         }
         console.log(`POST /documents/${documentId}/pages`);
 
@@ -172,21 +192,32 @@ serve(async (req) => {
             return createValidationErrorResponse(errors);
           }
         } catch (e) {
-          return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+          return createBadRequestResponse(
+            e instanceof Error ? e.message : 'Invalid JSON body',
+          );
         }
 
         // Permission check on parent document
-        const canManage = await checkDocumentManagement(supabaseClient, user.id, documentId);
-        if (!canManage) return createForbiddenResponse('Not authorized to manage pages in this document');
+        const canManage = await checkDocumentManagement(
+          supabaseClient,
+          user.id,
+          documentId,
+        );
+        if (!canManage) {
+          return createForbiddenResponse(
+            'Not authorized to manage pages in this document',
+          );
+        }
 
         // Get max order for the document
-        const { data: maxOrderData, error: maxOrderError } = await supabaseClient
-          .from('pages')
-          .select('"order"') // Ensure correct quoting for "order"
-          .eq('document_id', documentId)
-          .order('"order"', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const { data: maxOrderData, error: maxOrderError } =
+          await supabaseClient
+            .from('pages')
+            .select('"order"') // Ensure correct quoting for "order"
+            .eq('document_id', documentId)
+            .order('"order"', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
         if (maxOrderError) throw maxOrderError;
         const nextOrder = maxOrderData ? (maxOrderData.order + 1) : 0;
@@ -218,10 +249,14 @@ serve(async (req) => {
         let body: any;
         try {
           body = await req.json();
-          if (Object.keys(body).length === 0) throw new Error('No update data provided');
+          if (Object.keys(body).length === 0) {
+            throw new Error('No update data provided');
+          }
           // Content can be optional for update
         } catch (e) {
-          return createBadRequestResponse(e instanceof Error ? e.message : 'Invalid JSON body');
+          return createBadRequestResponse(
+            e instanceof Error ? e.message : 'Invalid JSON body',
+          );
         }
 
         // Fetch current page to get document_id for permission check
@@ -234,8 +269,16 @@ serve(async (req) => {
         if (fetchError) return createNotFoundResponse('Page not found');
 
         // Permission check on parent document
-        const canManage = await checkDocumentManagement(supabaseClient, user.id, currentPage.document_id);
-        if (!canManage) return createForbiddenResponse('Not authorized to manage pages in this document');
+        const canManage = await checkDocumentManagement(
+          supabaseClient,
+          user.id,
+          currentPage.document_id,
+        );
+        if (!canManage) {
+          return createForbiddenResponse(
+            'Not authorized to manage pages in this document',
+          );
+        }
 
         // Prepare allowed updates
         const allowedUpdates = {
@@ -243,8 +286,10 @@ serve(async (req) => {
           content: body.content,
           order: body.order,
         };
-        Object.keys(allowedUpdates).forEach(key => {
-          if ((allowedUpdates as any)[key] === undefined) delete (allowedUpdates as any)[key];
+        Object.keys(allowedUpdates).forEach((key) => {
+          if ((allowedUpdates as any)[key] === undefined) {
+            delete (allowedUpdates as any)[key];
+          }
         });
 
         // Update page
@@ -256,7 +301,9 @@ serve(async (req) => {
           .single();
 
         if (error) {
-          if (error.code === 'PGRST204') return createNotFoundResponse('Page not found');
+          if (error.code === 'PGRST204') {
+            return createNotFoundResponse('Page not found');
+          }
           throw error; // Handle specific DB errors in main catch
         }
 
@@ -281,8 +328,16 @@ serve(async (req) => {
         if (fetchError) return createNotFoundResponse('Page not found');
 
         // Permission check on parent document
-        const canManage = await checkDocumentManagement(supabaseClient, user.id, currentPage.document_id);
-        if (!canManage) return createForbiddenResponse('Not authorized to manage pages in this document');
+        const canManage = await checkDocumentManagement(
+          supabaseClient,
+          user.id,
+          currentPage.document_id,
+        );
+        if (!canManage) {
+          return createForbiddenResponse(
+            'Not authorized to manage pages in this document',
+          );
+        }
 
         // Delete page
         const { error } = await supabaseClient
@@ -291,9 +346,15 @@ serve(async (req) => {
           .eq('id', pageId);
 
         if (error) {
-          if (error.code === 'PGRST204') return createNotFoundResponse('Page not found');
+          if (error.code === 'PGRST204') {
+            return createNotFoundResponse('Page not found');
+          }
           // Handle FK constraints (e.g., document_comments referencing page)
-          if (error.code === '23503') return createBadRequestResponse('Cannot delete page with existing comments or references.');
+          if (error.code === '23503') {
+            return createBadRequestResponse(
+              'Cannot delete page with existing comments or references.',
+            );
+          }
           throw error;
         }
 
@@ -305,10 +366,23 @@ serve(async (req) => {
   } catch (error) {
     // Handle potential database errors
     if (error.code) { // Check if it looks like a PostgrestError
-        console.error('Database Error:', error.message, error.code, error.details);
-        if (error.code === '23505') return createConflictResponse(`Record already exists: ${error.details}`);
-        if (error.code === '23514') return createBadRequestResponse(`Invalid input: ${error.details}`);
-        if (error.code === '23503') return createBadRequestResponse(`Invalid reference: ${error.details}`);
+      console.error(
+        'Database Error:',
+        error.message,
+        error.code,
+        error.details,
+      );
+      if (error.code === '23505') {
+        return createConflictResponse(
+          `Record already exists: ${error.details}`,
+        );
+      }
+      if (error.code === '23514') {
+        return createBadRequestResponse(`Invalid input: ${error.details}`);
+      }
+      if (error.code === '23503') {
+        return createBadRequestResponse(`Invalid reference: ${error.details}`);
+      }
     }
     // Use the standardized internal server error response for other errors
     return createInternalServerErrorResponse(undefined, error);

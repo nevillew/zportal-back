@@ -179,14 +179,28 @@ serve(async (req) => {
           if (!newIssueData.description || !newIssueData.project_id) {
             throw new Error('Missing required fields: description, project_id');
           }
-            // Validate status enum if provided
-          if (newIssueData.status && !['Open', 'Investigating', 'Resolved', 'Closed'].includes(newIssueData.status)) {
-            throw new Error("Status must be one of: 'Open', 'Investigating', 'Resolved', 'Closed'");
+          // Validate status enum if provided
+          if (
+            newIssueData.status &&
+            !['Open', 'Investigating', 'Resolved', 'Closed'].includes(
+              newIssueData.status,
+            )
+          ) {
+            throw new Error(
+              "Status must be one of: 'Open', 'Investigating', 'Resolved', 'Closed'",
+            );
           }
-          
+
           // Validate priority enum if provided
-          if (newIssueData.priority && !['Low', 'Medium', 'High', 'Critical'].includes(newIssueData.priority)) {
-            throw new Error("Priority must be one of: 'Low', 'Medium', 'High', 'Critical'");
+          if (
+            newIssueData.priority &&
+            !['Low', 'Medium', 'High', 'Critical'].includes(
+              newIssueData.priority,
+            )
+          ) {
+            throw new Error(
+              "Priority must be one of: 'Low', 'Medium', 'High', 'Critical'",
+            );
           }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
@@ -208,15 +222,16 @@ serve(async (req) => {
         const companyId = projectToCheck.company_id;
 
         // Permission check using has_permission RPC function
-        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-          'has_permission',
-          {
-            user_id: user.id,
-            company_id: companyId,
-            permission_key: 'issue:manage',
-          },
-        );
-        
+        const { data: hasPermission, error: permissionError } =
+          await supabaseClient.rpc(
+            'has_permission',
+            {
+              user_id: user.id,
+              company_id: companyId,
+              permission_key: 'issue:manage',
+            },
+          );
+
         if (permissionError) {
           console.error(
             `Error checking permissions for user ${user.id}:`,
@@ -229,7 +244,9 @@ serve(async (req) => {
           console.error(
             `User ${user.id} is not authorized to create issues for project ${targetProjectId}.`,
           );
-          return createForbiddenResponse('Not authorized to create issues for this project');
+          return createForbiddenResponse(
+            'Not authorized to create issues for this project',
+          );
         }
 
         // Insert new issue
@@ -250,18 +267,18 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error creating issue:', insertError.message);
-          
+
           // Handle specific database errors
           if (insertError.code === '23503') { // Foreign key violation
-            const constraint = insertError.message.includes('project_id') 
-              ? 'project_id' 
-              : insertError.message.includes('related_risk_id') 
-                ? 'related_risk_id' 
-                : insertError.message.includes('reported_by_user_id')
-                  ? 'reported_by_user_id'
-                  : insertError.message.includes('assigned_to_user_id')
-                    ? 'assigned_to_user_id'
-                    : 'unknown foreign key';
+            const constraint = insertError.message.includes('project_id')
+              ? 'project_id'
+              : insertError.message.includes('related_risk_id')
+              ? 'related_risk_id'
+              : insertError.message.includes('reported_by_user_id')
+              ? 'reported_by_user_id'
+              : insertError.message.includes('assigned_to_user_id')
+              ? 'assigned_to_user_id'
+              : 'unknown foreign key';
             return createBadRequestResponse(
               `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
@@ -270,7 +287,9 @@ serve(async (req) => {
               `Invalid field value: ${insertError.message}`,
             );
           } else if (insertError.code === '23502') { // Not null violation
-            const columnMatch = insertError.message.match(/null value in column "(.+?)"/);
+            const columnMatch = insertError.message.match(
+              /null value in column "(.+?)"/,
+            );
             const column = columnMatch ? columnMatch[1] : 'unknown';
             return createBadRequestResponse(`The ${column} field is required.`);
           }
@@ -313,15 +332,16 @@ serve(async (req) => {
         }
 
         // Permission check using has_permission RPC function
-        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-          'has_permission',
-          {
-            user_id: user.id,
-            company_id: projectCompanyId,
-            permission_key: 'issue:manage',
-          },
-        );
-        
+        const { data: hasPermission, error: permissionError } =
+          await supabaseClient.rpc(
+            'has_permission',
+            {
+              user_id: user.id,
+              company_id: projectCompanyId,
+              permission_key: 'issue:manage',
+            },
+          );
+
         if (permissionError) {
           console.error(
             `Error checking permissions for user ${user.id}:`,
@@ -344,15 +364,27 @@ serve(async (req) => {
           if (Object.keys(updateData).length === 0) {
             throw new Error('No update data provided');
           }
-          
+
           // Validate status enum if provided
-          if (updateData.status && !['Open', 'Investigating', 'Resolved', 'Closed'].includes(updateData.status)) {
-            throw new Error("Status must be one of: 'Open', 'Investigating', 'Resolved', 'Closed'");
+          if (
+            updateData.status &&
+            !['Open', 'Investigating', 'Resolved', 'Closed'].includes(
+              updateData.status,
+            )
+          ) {
+            throw new Error(
+              "Status must be one of: 'Open', 'Investigating', 'Resolved', 'Closed'",
+            );
           }
-          
+
           // Validate priority enum if provided
-          if (updateData.priority && !['Low', 'Medium', 'High', 'Critical'].includes(updateData.priority)) {
-            throw new Error("Priority must be one of: 'Low', 'Medium', 'High', 'Critical'");
+          if (
+            updateData.priority &&
+            !['Low', 'Medium', 'High', 'Critical'].includes(updateData.priority)
+          ) {
+            throw new Error(
+              "Priority must be one of: 'Low', 'Medium', 'High', 'Critical'",
+            );
           }
         } catch (e) {
           const errorMessage = e instanceof Error ? e.message : 'Unknown error';
@@ -399,8 +431,8 @@ serve(async (req) => {
             const constraint = updateError.message.includes('related_risk_id')
               ? 'related_risk_id'
               : updateError.message.includes('assigned_to_user_id')
-                ? 'assigned_to_user_id'
-                : 'unknown foreign key';
+              ? 'assigned_to_user_id'
+              : 'unknown foreign key';
             return createBadRequestResponse(
               `Invalid reference: ${constraint} refers to a record that doesn't exist`,
             );
@@ -409,7 +441,9 @@ serve(async (req) => {
               `Invalid field value: ${updateError.message}`,
             );
           } else if (updateError.code === '23502') { // Not null violation
-            const columnMatch = updateError.message.match(/null value in column "(.+?)"/);
+            const columnMatch = updateError.message.match(
+              /null value in column "(.+?)"/,
+            );
             const column = columnMatch ? columnMatch[1] : 'unknown';
             return createBadRequestResponse(`The ${column} field is required.`);
           }
@@ -450,15 +484,16 @@ serve(async (req) => {
         }
 
         // Permission check using has_permission RPC function
-        const { data: hasPermission, error: permissionError } = await supabaseClient.rpc(
-          'has_permission',
-          {
-            user_id: user.id,
-            company_id: projectCompanyId,
-            permission_key: 'issue:manage',
-          },
-        );
-        
+        const { data: hasPermission, error: permissionError } =
+          await supabaseClient.rpc(
+            'has_permission',
+            {
+              user_id: user.id,
+              company_id: projectCompanyId,
+              permission_key: 'issue:manage',
+            },
+          );
+
         if (permissionError) {
           console.error(
             `Error checking permissions for user ${user.id}:`,
