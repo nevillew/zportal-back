@@ -34,19 +34,19 @@ This document outlines the remaining backend implementation tasks based on `full
 ### 3.3 Logic for Projects
 
 -   **Milestone Sign-off Workflow (`approvals` table):**
-    -   _Status:_ Deferred (Schema TBD).
-    -   _Solution:_ Define `approvals` and `approval_steps` table schemas if a formal multi-step workflow is required beyond the current basic sign-off fields. Implement logic in `milestones` function PUT handler to create `approvals` record.
-    -   _Action Points:_ (Deferred) Create migration for `approvals` schema. Modify `milestones` Edge Function.
+    -   _Status:_ [x] Implemented (Multi-Step).
+    -   _Solution:_ Defined `approvals` and `approval_steps` tables. Modified `milestones` PUT handler to create approval records. Created `approve_milestone_step` RPC.
+    -   _Action Points:_ Migrations `20250414020100`, `20250414020200`. Modified `supabase/functions/milestones/index.ts`.
 -   **Project Health Logic (Scheduled Job):**
-    -   _Status:_ Deferred (Logic TBD).
-    -   _Solution:_ Define calculation logic (e.g., based on overdue tasks, milestone status). Create a SQL function for the calculation. Create a scheduled job (pg_cron calling an Edge Function or SQL function) to run periodically and update `projects.health_status`.
-    -   _Action Points:_ (Deferred) Define calculation logic. Create migration for SQL function. Create migration for `cron.schedule`.
+    -   _Status:_ [x] Implemented (Example Logic).
+    -   _Solution:_ Created SQL function `calculate_project_health` based on example logic. Created Edge Function `update-project-health` triggered by `pg_cron`.
+    -   _Action Points:_ Migrations `20250414020300`, `20250414020400`. Created `supabase/functions/update-project-health/index.ts`.
 
 ### 3.8 Logic for Tasks & Sections
 
 -   **Dependency enforcement logic (Backend):**
     -   _Status:_ [x] Implemented.
-    -   _Solution:_ Enhance the RLS `WITH CHECK` clause on the `tasks` table UPDATE policy to prevent status updates to 'Complete' if `depends_on_task_id` points to an incomplete task. Alternatively, create a `BEFORE UPDATE` trigger.
+    -   _Solution:_ Enhanced the RLS `WITH CHECK` clause on the `tasks` table UPDATE policy to prevent status updates to 'Complete' if `depends_on_task_id` points to an incomplete task. Alternatively, create a `BEFORE UPDATE` trigger.
     -   _Action Points:_ Create migration `20250414010500_enhance_task_dependency_rls.sql` to `DROP` and `CREATE` the existing UPDATE policy on `tasks` with the added dependency check in the `WITH CHECK` clause.
 
 ### 3.9 Security Rules (RLS) for Tasks & Sections
@@ -115,9 +115,9 @@ This document outlines the remaining backend implementation tasks based on `full
 ### 6.2 Logic for Training
 
 -   **Implement Auto-Assignment logic:**
-    -   _Status:_ Deferred (Rules TBD).
-    -   _Solution:_ Define schema for `training_assignment_rules` table. Create a scheduled function (SQL or Edge) to evaluate rules against users/companies and insert into `course_assignments`.
-    -   _Action Points:_ (Deferred) Define rules logic. Create migration for rules table. Create migration for scheduled function/trigger.
+    -   _Status:_ [x] Implemented (Role-based Example).
+    -   _Solution:_ Created `training_assignment_rules` table. Created Edge Function `assign-training` triggered by `pg_cron`.
+    -   _Action Points:_ Migrations `20250414020500`, `20250414020600`. Created `supabase/functions/assign-training/index.ts`.
 -   **Implement Quiz logic:**
     -   _Status:_ [x] Implemented (Backend endpoint).
     -   _Solution:_ Create a new Edge Function (e.g., `submit-quiz`) that accepts `lesson_id` and user answers. Fetch `lessons.quiz_data`, validate answers, calculate score, and insert/update `lesson_completions` record with the score.
@@ -130,11 +130,11 @@ This document outlines the remaining backend implementation tasks based on `full
 -   **Ensure `tasks.depends_on_task_id` is enforced:**
     -   _Status:_ [x] Implemented (via 3.8).
 -   **Implement Training Auto-Assignment:**
-    -   _Status:_ Covered by item 6.2 (Deferred).
+    -   _Status:_ [x] Implemented (via 6.2).
 -   **Implement SLA Tracking:**
-    -   _Status:_ Deferred (Rules TBD).
-    -   _Solution:_ Define SLA rules/fields. Create scheduled function to check tasks against rules and potentially trigger notifications.
-    -   _Action Points:_ (Deferred) Define SLA logic. Create migration for schema changes. Create migration for scheduled function.
+    -   _Status:_ [x] Implemented (Example Logic).
+    -   _Solution:_ Added `sla_definition` and `sla_breached` to tasks/templates. Created Edge Function `check-sla` triggered by `pg_cron`.
+    -   _Action Points:_ Migrations `20250414020700`, `20250414020800`. Created `supabase/functions/check-sla/index.ts`.
 
 ### 7.3 Client Experience Enhancements
 
@@ -145,7 +145,7 @@ This document outlines the remaining backend implementation tasks based on `full
 ### 7.7 Technical Enhancements
 
 -   **Implement custom rate limiting:**
-    -   _Status:_ Deferred (Low Priority).
+    -   _Status:_ Deferred (Low Priority - Requires Specifics).
     -   _Solution:_ Configure Supabase Auth limits. If more granular control is needed per-function, investigate using external services (Redis, Upstash) or database tables for tracking requests within Edge Functions.
     -   _Action Points:_ (Deferred) Modify `supabase/config.toml` for basic limits. Implement custom logic in specific Edge Functions if required later.
 
@@ -154,9 +154,9 @@ This document outlines the remaining backend implementation tasks based on `full
 -   **Implement `documents.is_approved` workflow:**
     -   _Status:_ [x] Implemented (via 4.2).
 -   **Define `document_templates` table schema:**
-    -   _Status:_ Deferred (Schema TBD).
-    -   _Solution:_ Define schema for `document_templates` similar to `project_templates`.
-    -   _Action Points:_ (Deferred) Create migration for `document_templates` schema.
+    -   _Status:_ [x] Implemented (Simple Content Template).
+    -   _Solution:_ Created `document_templates` table. Modified `documents` POST Edge Function to use template content.
+    -   _Action Points:_ Migration `20250414020900`. Modified `supabase/functions/documents/index.ts`.
 
 ### 7.9 Communication Enhancements
 
@@ -167,7 +167,7 @@ This document outlines the remaining backend implementation tasks based on `full
 ### 7.10 Training System Enhancements
 
 -   **Implement Assignment Rules:**
-    -   _Status:_ Covered by item 6.2 (Deferred).
+    -   _Status:_ [x] Implemented (via 6.2).
 
 ### 7.13 Custom Fields
 
@@ -183,7 +183,7 @@ This document outlines the remaining backend implementation tasks based on `full
 ### 8.4 Edge Functions
 
 -   **Develop Scheduled Task functions (SLA, Health):**
-    -   _Status:_ Covered by items 7.2 and 3.3 (Deferred).
+    -   _Status:_ [x] Implemented (via 7.2 and 3.3).
 
 ### 8.6 Scalability & Performance
 

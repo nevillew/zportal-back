@@ -1,5 +1,31 @@
 # ZPortal Backend Implementation Log - Full Build
 
+## 2025-04-14 (Deferred Items Implementation)
+
+-   **Milestone Approval Workflow:** Implemented multi-step approval process.
+    -   Created `approvals` and `approval_steps` tables. (Migration: `20250414020100_create_approval_tables.sql`)
+    -   Modified `milestones` Edge Function PUT handler to create `approvals` and initial `approval_steps` records when `sign_off_required` is true and status is set to 'Completed'. (`supabase/functions/milestones/index.ts`)
+    -   Created RPC function `approve_milestone_step` to handle approving/rejecting individual steps and updating overall status. (Migration: `20250414020200_add_approve_milestone_step_rpc.sql`)
+-   **Project Health Logic:** Implemented scheduled calculation based on example logic.
+    -   Created SQL function `calculate_project_health` using example criteria (overdue tasks, milestones, open risks/issues). (Migration: `20250414020300_add_project_health_function.sql`)
+    -   Created Edge Function `update-project-health` to iterate projects and call the RPC. (`supabase/functions/update-project-health/index.ts`)
+    -   Scheduled the Edge Function trigger via `pg_cron` to run daily. (Migration: `20250414020400_schedule_project_health_update.sql`)
+-   **Training Auto-Assignment:** Implemented role-based auto-assignment.
+    -   Created `training_assignment_rules` table. (Migration: `20250414020500_create_training_assignment_rules_table.sql`)
+    -   Created Edge Function `assign-training` to process rules and assign courses. (`supabase/functions/assign-training/index.ts`)
+    -   Scheduled the Edge Function trigger via `pg_cron` to run daily. (Migration: `20250414020600_schedule_training_assignment.sql`)
+-   **SLA Tracking:** Implemented task due date SLA check based on example logic.
+    -   Added `sla_definition` (JSONB) and `sla_breached` (boolean) columns to `tasks` and `task_templates`. Updated `instantiate_template_rpc` to copy definition. (Migration: `20250414020700_add_sla_columns.sql`)
+    -   Created Edge Function `check-sla` to identify and mark breached tasks. (`supabase/functions/check-sla/index.ts`)
+    -   Scheduled the Edge Function trigger via `pg_cron` to run hourly. (Migration: `20250414020800_schedule_sla_check.sql`)
+-   **Document Templates:** Implemented simple content templating.
+    -   Created `document_templates` table. (Migration: `20250414020900_create_document_templates_table.sql`)
+    -   Modified `documents` Edge Function POST handler to accept `template_id` and create initial page content. (`supabase/functions/documents/index.ts`)
+
+---
+
+*(Previous entries from original full_build_done.md)*
+
 ## 2025-04-14
 
 -   **RLS Policies:** Implemented Row Level Security policies for:

@@ -728,8 +728,62 @@ serve(async (req) => {
             console.log(
               `Milestone ${milestoneId} requires sign-off. Status set to 'Completed', approval needed.`,
             );
-            // Status remains 'Completed', but we trigger a notification for approval.
-            // The actual 'Approved' status change happens via POST /milestones/{id}/approve
+
+            // --- Create Approval Record ---
+            let approvalId: string | null = null;
+            try {
+              const { data: newApproval, error: approvalInsertError } = await supabaseClient
+                .from('approvals')
+                .insert({
+                  entity_type: 'milestone',
+                  entity_id: milestoneId,
+                  status: 'pending',
+                  requested_by_user_id: user.id,
+                })
+                .select('id')
+                .single();
+
+              if (approvalInsertError) throw approvalInsertError;
+              approvalId = newApproval.id;
+              console.log(`Created approval record ${approvalId} for milestone ${milestoneId}`);
+
+              // TODO: Add logic to create approval_steps based on project settings/owner
+              // Example: Assign step to project owner if different from updater
+              const { data: projectOwnerData, error: ownerError } = await supabaseClient
+                .from('projects')
+                .select('project_owner_id')
+                .eq('id', milestoneToCheck.project_id) // Use project_id from earlier fetch
+                .single();
+
+              if (ownerError) throw new Error(`Failed to fetch project owner: ${ownerError.message}`);
+
+              if (projectOwnerData?.project_owner_id && projectOwnerData.project_owner_id !== user.id) {
+                const { error: stepInsertError } = await supabaseClient
+                  .from('approval_steps')
+                  .insert({
+                    approval_id: approvalId,
+                    approver_user_id: projectOwnerData.project_owner_id,
+                    status: 'pending',
+                    order: 0,
+                  });
+                if (stepInsertError) throw new Error(`Failed to create approval step: ${stepInsertError.message}`);
+                console.log(`Created approval step for owner ${projectOwnerData.project_owner_id}`);
+              } else {
+                 console.log(`Skipping approval step creation (no owner or owner is updater).`);
+              }
+
+              // Update milestone to link to the approval record
+              allowedUpdates.approval_id = approvalId;
+
+            } catch (approvalError) {
+               console.error(`Error creating approval record/steps for milestone ${milestoneId}:`, approvalError.message);
+               // Should we proceed without approval record? Or fail the update? Failing seems safer.
+               return createInternalServerErrorResponse(`Failed to initiate approval process: ${approvalError.message}`, approvalError);
+            }
+            // --- End Create Approval Record ---
+
+
+            // --- Send Notification ---
             try {
               // Fetch details needed for notification
               const { data: notifyData, error: notifyFetchError } = await supabaseClient

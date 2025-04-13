@@ -219,6 +219,15 @@ serve(async (req) => {
           if (Object.keys(errors).length > 0) {
             return createValidationErrorResponse(errors);
           }
+          // Add template_id validation if needed (e.g., check if UUID format)
+          if (body.template_id && typeof body.template_id !== 'string') {
+             errors.template_id = ['Invalid template ID format.'];
+          }
+
+
+          if (Object.keys(errors).length > 0) {
+            return createValidationErrorResponse(errors);
+          }
         } catch (e) {
           return createBadRequestResponse(
             e instanceof Error ? e.message : 'Invalid JSON body',
@@ -256,6 +265,45 @@ serve(async (req) => {
           .single();
 
         if (error) throw error; // Handle specific DB errors in main catch
+
+        // --- Create Initial Page from Template (if specified) ---
+        if (body.template_id) {
+          try {
+            console.log(`Fetching content from document template ${body.template_id}`);
+            const { data: templateData, error: templateError } = await supabaseClient
+              .from('document_templates')
+              .select('default_content, name') // Fetch name for the initial page
+              .eq('id', body.template_id)
+              .eq('is_active', true)
+              .maybeSingle();
+
+            if (templateError) throw new Error(`Error fetching template: ${templateError.message}`);
+
+            if (templateData?.default_content) {
+              console.log(`Creating initial page for document ${data.id} from template.`);
+              const { error: pageInsertError } = await supabaseClient
+                .from('pages')
+                .insert({
+                  document_id: data.id,
+                  name: templateData.name || 'Initial Page', // Use template name or default
+                  content: templateData.default_content,
+                  order: 0,
+                });
+              if (pageInsertError) {
+                 // Log error but don't fail the document creation itself
+                 console.error(`Failed to create initial page from template ${body.template_id} for document ${data.id}:`, pageInsertError.message);
+                 await logFailure(supabaseClient, 'document-template-page-creation', { document_id: data.id, template_id: body.template_id }, pageInsertError);
+              }
+            } else {
+               console.warn(`Document template ${body.template_id} not found, inactive, or has no content. Skipping initial page creation.`);
+            }
+          } catch (templatePageError) {
+             console.error(`Error creating initial page from template ${body.template_id}:`, templatePageError.message);
+             await logFailure(supabaseClient, 'document-template-page-creation', { document_id: data.id, template_id: body.template_id }, templatePageError);
+          }
+        }
+        // --- End Initial Page Creation ---
+
 
         return new Response(JSON.stringify(data), {
           status: 201,
