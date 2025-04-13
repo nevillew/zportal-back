@@ -185,12 +185,31 @@ serve(async (req) => {
             new Set([...body.participant_ids, user.id]),
           );
 
-          // --- Create Conversation and Participants (Needs Transaction ideally) ---
-          // TODO(transaction): Wrap in RPC for atomicity
-          console.warn('TODO: Wrap conversation creation in transaction (RPC)');
+          // --- Create Conversation via RPC ---
+          console.log('Calling create_conversation RPC...');
+          const { data: newConversationId, error: rpcError } = await supabaseClient
+            .rpc('create_conversation', {
+              p_topic: body.topic,
+              p_project_id: body.project_id,
+              p_task_id: body.task_id,
+              p_participant_ids: allParticipantIds,
+              p_creator_id: user.id,
+            });
 
-          // 1. Create Conversation
-          const { data: newConversation, error: convoError } =
+          if (rpcError) {
+            console.error('Error calling create_conversation RPC:', rpcError);
+            // Handle potential errors from RPC (e.g., validation, DB constraints)
+            throw new Error(`RPC Error: ${rpcError.message}`); // Let main catch handler deal with it
+          }
+
+          if (!newConversationId) {
+            throw new Error('RPC function did not return a new conversation ID.');
+          }
+          console.log(`Conversation created via RPC with ID: ${newConversationId}`);
+          // --- End RPC Call ---
+
+          // Fetch the created conversation with participants for response
+          const { data: finalConversation, error: fetchFinalError } =
             await supabaseClient
               .from('conversations')
               .insert({

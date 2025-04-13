@@ -42,8 +42,10 @@ This document outlines the implementation plan for addressing the TODO items ide
     - [ ] **Participant/Context Validation:** In the POST `/conversations` handler, before creating the conversation:
         - Query `user_profiles` WHERE `user_id` IN `participant_ids`. Check if the count matches and all are active. Return 400 if validation fails.
         - If `project_id` is provided, query `projects` WHERE `id = project_id`. Check if found and user has access via `can_access_project`. Return 400/404 if validation fails.
+        - Query `user_profiles` WHERE `user_id` IN `participant_ids`. Check if the count matches and all are active. Return 400 if validation fails.
+        - If `project_id` is provided, query `projects` WHERE `id = project_id`. Check if found and user has access via `can_access_project`. Return 400/404 if validation fails.
         - If `task_id` is provided, query `tasks` WHERE `id = task_id`. Check if found and user has access via task RLS. Return 400/404 if validation fails.
-    - [ ] **Transaction Handling:** Create a PostgreSQL RPC function `create_conversation(p_topic text, p_project_id uuid, p_task_id uuid, p_participant_ids uuid[], p_creator_id uuid)` that performs the `INSERT INTO conversations` and `INSERT INTO conversation_participants` within a single transaction. Update the POST `/conversations` handler in the Edge Function to call this RPC.
+    - [x] **Transaction Handling:** Create a PostgreSQL RPC function `create_conversation(p_topic text, p_project_id uuid, p_task_id uuid, p_participant_ids uuid[], p_creator_id uuid)` that performs the `INSERT INTO conversations` and `INSERT INTO conversation_participants` within a single transaction. Update the POST `/conversations` handler in the Edge Function to call this RPC.
     - [ ] **Realtime Event:** After successfully inserting a message in POST `/conversations/{conversationId}/messages` (around line 155), use `supabaseClient.channel(...).send(...)` to broadcast the new message event on a channel related to the `conversationId`. (Requires frontend subscription setup).
     - [ ] **Message Edit/Delete:** Implement `PUT /messages/{messageId}` and `DELETE /messages/{messageId}` handlers. Fetch the message, verify ownership (`sender_user_id === user.id`) or staff status. Perform the update (only `content`) or delete operation.
 
