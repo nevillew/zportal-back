@@ -945,38 +945,38 @@ This specification (Version 3.3) provides a highly detailed and comprehensive bl
 
 - **Views (App Router):** Auth pages in `(auth)` group, main app in `(main)` group. Use Next.js middleware or layout checks with `@supabase/auth-helpers-nextjs` for protecting routes.
 - **Components:** `AuthForm`, `OAuthButton`, `SSOButton` (Client Components).
-- **Logic:** Use `@supabase/auth-helpers-nextjs` for server-side session management and client-side hooks (`useSession`, `useSupabaseClient`). Store supplementary user profile/permissions in global client state (Zustand/Jotai/RTK) fetched after login. Conditional rendering based on permissions.
+- **Logic:** Use `@supabase/auth-helpers-nextjs` for server-side session management and client-side hooks (`useSession`, `useSupabaseClient`). Store supplementary user profile (`user_profiles` table) and effective permissions (derived from `company_users`, `roles` via helper function/view) in global client state (Zustand/Jotai/RTK) fetched after login. Conditional rendering based on permissions state. Invitation acceptance flow calls `/functions/v1/accept-invite` (POST) after user auth, which internally calls the `accept_invitation` RPC. SSO JIT provisioning handled by `/functions/v1/sso-jit-provisioning` function triggered by Supabase Auth Hook.
 - **Centralized Permission Keys:** _(Added Note)_ A definitive list of permission keys is maintained (`permissions.ts`). Frontend conditional rendering MUST use these defined keys.
 
 ### 4.2 Application Layout & Navigation
 
 - **Components:**
   - `RootLayout` (`app/layout.tsx`): Setup providers (Supabase, State Management, Theme).
-  - `MainLayout` (`app/(main)/layout.tsx`): Includes `Sidebar` and `Header` (Client Components). Fetches initial user/context data server-side if possible or client-side on load.
-  - `Sidebar`: Client Component for interactivity (collapse). Navigation links rendered based on permissions.
-  - `Header`: Client Component. Includes `GlobalSearchInput`, Notifications (Client), User Menu (Client), `ContextSwitcher` (Client).
-  - `ContextSwitcher`: Client Component dropdown. Updates global client state.
+  - `MainLayout` (`app/(main)/layout.tsx`): Includes `Sidebar` and `Header` (Client Components). Fetches initial user profile (`user_profiles`) and company memberships (`company_users`) server-side or client-side on load to populate context switcher and user menu.
+  - `Sidebar`: Client Component for interactivity (collapse). Navigation links rendered based on permissions state.
+  - `Header`: Client Component. Includes `GlobalSearchInput` (calls `global_search` RPC), Notifications (fetches from `notifications` table via PostgREST, subscribes to Realtime), User Menu (Client), `ContextSwitcher` (Client, uses fetched company memberships).
+  - `ContextSwitcher`: Client Component dropdown. Updates global client state (selected `company_id`).
 
 ### 4.3 Dashboard
 
 - **Views (App Router):** `app/(main)/dashboard/page.tsx` (Server Component preferred for initial data load).
-- **Components:** Dashboard widgets (likely Client Components if interactive or using client-side hooks). Fetch data within Server Component and pass as props, or widgets fetch client-side via RTK Query.
-- **Reporting Scope Clarification:** V1 surfaces reports only via dashboard widgets/specific components. No dedicated `/app/reports` section.
+- **Components:** Dashboard widgets (likely Client Components if interactive or using client-side hooks). Fetch data using relevant Reporting RPC functions (e.g., `get_project_summary`, `get_overdue_tasks`, `get_staff_workload`) or directly query views via PostgREST if simpler.
+- **Reporting Scope Clarification:** V1 surfaces reports only via dashboard widgets/specific components. No dedicated `/app/reports` section. Backend provides numerous `view_*` tables and corresponding `get_*` RPC functions for data retrieval (see `docs/database.md` and `docs/api.md`).
 
 ### 4.4 Project Management
 
-- **Views (App Router):** `app/(main)/projects/page.tsx` (List - Server Component), `app/(main)/projects/[projectId]/...` (Detail - use layouts, potentially Server Components for static parts, Client Components for interactive sections).
+- **Views (App Router):** `app/(main)/projects/page.tsx` (List - Server Component), `app/(main)/projects/[projectId]/...` (Detail - use layouts, potentially Server Components for static parts, Client Components for interactive sections). Project creation uses `/functions/v1/projects` (POST), potentially calling `instantiate_template_rpc`. Updates/Deletes use `/functions/v1/projects/{id}` (PUT/DELETE).
 - **Components:**
-  - `ProjectTable`/`Card` (Can be Server Component if just displaying data). `ProjectCreateForm` (Client Component).
-  - `TaskBoard`/`List` (Client Component due to DND, filtering, task interactions). `SectionColumn`, `TaskCard`/`ListItem` (Client).
-  - `TaskDetailModal`: Client Component (state, forms, comments, files, time tracking).
-    - **File Upload UX:** _(Added Detail)_ `FileUpload` component uses `supabase.storage...upload()`, shows progress, handles errors, triggers backend API call on success, updates `FileList`.
-  - `TaskForm`: Client Component (React Hook Form, handles recurrence, effort, custom fields).
-  - `MilestoneList`/`Timeline`: Client Component (interactivity, sign-off). `MilestoneDetail` (Client).
-  - `RiskList`/`IssueList`: Client Component (sorting, filtering). `RiskIssueForm` (Client).
-  - **Feedback UI:** _(Added)_ `FeedbackForm` modal (Client Component) triggered from Project Detail view (`/app/(main)/projects/[projectId]/feedback/` or similar).
-  - **Integrations UI:** _(Added)_ `IntegrationSettingsForm` component within Project Settings (`app/(main)/projects/[projectId]/settings/page.tsx`) for settings like Slack Channel ID.
-  - **Custom Field Rendering:** _(Added Detail)_ Implement `CustomFieldRenderer` (Client Component) mapping `definition.field_type` to Tailwind UI inputs (`Input`, `Textarea`, `Select`, Date Picker, `Toggle`, etc.) using React Hook Form for state and validation based on `definition.validation_rules`.
+  - `ProjectTable`/`Card` (Fetches via PostgREST or `/functions/v1/projects`). `ProjectCreateForm` (Client Component, handles template selection, placeholder input, calls POST `/functions/v1/projects` or `/functions/v1/instantiate-project-template`).
+  - `TaskBoard`/`List` (Client Component due to DND, filtering, interactions. Fetches tasks via `/functions/v1/tasks?project_id=...` or `?section_id=...`). `SectionColumn`, `TaskCard`/`ListItem` (Client). Task CRUD via `/functions/v1/tasks/{id}`. Section CRUD via `/functions/v1/sections/{id}`.
+  - `TaskDetailModal`: Client Component (state, forms, comments, files, time tracking). Fetches task details via `/functions/v1/tasks/{id}`.
+    - **File Upload UX:** _(Added Detail)_ `FileUpload` component uses `supabase.storage...upload()`, shows progress, handles errors. On success, calls POST `/functions/v1/tasks/{taskId}/files` to save metadata. File list uses GET `/functions/v1/tasks/{taskId}/files` (gets signed URLs). Delete calls DELETE `/functions/v1/files/{fileId}`.
+  - `TaskForm`: Client Component (React Hook Form, handles parent task, dependencies, recurrence rules, effort estimate, custom fields). Calls POST/PUT `/functions/v1/tasks`.
+  - `MilestoneList`/`Timeline`: Client Component (interactivity, sign-off). Fetches via `/functions/v1/milestones?project_id=...`. CRUD via `/functions/v1/milestones/{id}`. Approval uses `approve_milestone_step` RPC.
+  - `RiskList`/`IssueList`: Client Component (sorting, filtering). Fetches via `/functions/v1/risks?project_id=...` or `/issues?project_id=...`. CRUD via `/functions/v1/risks/{id}` or `/issues/{id}`.
+  - **Feedback UI:** _(Added)_ `FeedbackForm` modal (Client Component) triggered from Project Detail view. Calls POST `/functions/v1/feedback`.
+  - **Integrations UI:** _(Added)_ `IntegrationSettingsForm` component within Project Settings (`app/(main)/projects/[projectId]/settings/page.tsx`) for settings like Slack Channel ID (saves to `projects` or dedicated table).
+  - **Custom Field Rendering:** _(Added Detail)_ Implement `CustomFieldRenderer` (Client Component) mapping `definition.field_type` to Tailwind UI inputs. Fetches definitions via `/functions/v1/custom-field-definitions`. Saves values via `custom_fields` object in POST/PUT requests to parent entity endpoints (e.g., `/tasks`, `/projects`). Backend handles saving to `custom_field_values`.
 
 ### 4.5 Documentation
 
@@ -990,37 +990,37 @@ This specification (Version 3.3) provides a highly detailed and comprehensive bl
 
 ### 4.7 Training
 
-- **Views (App Router):** `app/(main)/training/courses/page.tsx`, `app/(main)/training/courses/[courseId]/page.tsx`, `app/(main)/training/courses/[courseId]/lessons/[lessonId]/page.tsx`, `app/(main)/profile/certificates/page.tsx` (_Added View_).
-- **Components:** `CourseCard` (Server/Client), `LessonListItem` (Client), `VideoPlayer`/`PdfViewer` (Client), `QuizComponent` (Client), `ProgressBar` (Client), `BadgeDisplay` (Client), `CertificateList`/`ListItem` (_Added_, Client). Certificate download links provided.
+- **Views (App Router):** `app/(main)/training/courses/page.tsx`, `app/(main)/training/courses/[courseId]/page.tsx`, `app/(main)/training/courses/[courseId]/lessons/[lessonId]/page.tsx`, `app/(main)/profile/certificates/page.tsx` (_Added View_). Data fetched via PostgREST from `courses`, `lessons`, `course_assignments`, `lesson_completions`, `course_certificates`.
+- **Components:** `CourseCard` (Server/Client), `LessonListItem` (Client), `VideoPlayer`/`PdfViewer` (Client), `QuizComponent` (Client, submits answers via POST `/functions/v1/submit-quiz`), `ProgressBar` (Client, uses `view_company_training_compliance` or calculates locally), `BadgeDisplay` (Client, fetches from `user_badges`), `CertificateList`/`ListItem` (_Added_, Client - fetches from `course_certificates`, provides download links using storage path).
 
 ### 4.8 Time Tracking
 
-- **Components:** `TimerComponent` (Client), `TimeEntryForm` (Client), `TimeLogList` (Client). Integrated into Task Detail.
+- **Components:** `TimerComponent` (Client, calls `start_task_timer` and `stop_task_timer` RPCs), `TimeEntryForm` (Client, calls `log_manual_time` RPC), `TimeLogList` (Client, fetches from `time_entries` table via PostgREST). Integrated into Task Detail.
 
 ### 4.9 Announcements
 
-- **Components:** `AnnouncementsWidget` (Client for dismiss), `AnnouncementForm` (Admin UI - Client).
+- **Components:** `AnnouncementsWidget` (Client for dismiss, fetches via `/functions/v1/announcements`, subscribes to Realtime), `AnnouncementForm` (Admin UI - Client, calls POST/PUT `/functions/v1/announcements`).
 
 ### 4.10 Search
 
-- **Components:** `GlobalSearchInput` (Client), `SearchResultsPage` (`app/(main)/search/page.tsx` - likely Client to handle dynamic query).
+- **Components:** `GlobalSearchInput` (Client, calls `global_search` RPC), `SearchResultsPage` (`app/(main)/search/page.tsx` - likely Client to handle dynamic query, calls `global_search` RPC).
 
 ### 4.11 User Profile & Settings
 
 - **Views (App Router):** `app/(main)/profile/...`, `app/(main)/settings/page.tsx`.
-- **Components:** `ProfileForm` (Client), `NotificationPreferences` (Client), `MyBadges` (Client), `AccountSettings` (Client). Link to `/app/profile/certificates`.
+- **Components:** `ProfileForm` (Client, updates `user_profiles`), `NotificationPreferences` (Client, updates `notification_settings`), `MyBadges` (Client, fetches `user_badges`), `AccountSettings` (Client). Link to `/app/profile/certificates`.
 
 ### 4.12 Admin Settings (Staff Only)
 
-- **Views (App Router):** Route group `app/(main)/admin/...` protected by layout/middleware checking for Staff role/permissions. Pages for Role Management, Custom Field Management, Template Management, Data Retention Settings (mostly Client Components due to forms/interactions).
+- **Views (App Router):** Route group `app/(main)/admin/...` protected by layout/middleware checking for Staff role/permissions. Pages for Role Management (uses `roles` table via PostgREST), Custom Field Management (uses `/functions/v1/custom-field-definitions`), Template Management (uses `project_templates`, `project_template_versions` via PostgREST), Data Retention Settings (updates `companies` table via `/functions/v1/companies/{id}`). Mostly Client Components due to forms/interactions.
 
 ### 4.13 Audit Log Viewer (Admin Only - V1 Scope) (_Added Section_)
 
-- **View:** `/app/admin/audit-log` (Protected route accessible via `Permission.VIEW_AUDIT_LOG`).
-- **Functionality:** Client Component displaying `audit_log` records (reverse chronological).
-- **Display:** Key columns (Timestamp, User, Action, Target).
-- **Filtering:** Client-side or server-side filtering (via API/RPC) by Date Range, User, Action, Target Type.
-- **Pagination:** Implement pagination (client or server-side).
+- **View:** `/app/admin/audit-log` (Protected route accessible via `admin:view_audit_log` permission).
+- **Functionality:** Client Component displaying `audit_log` records (reverse chronological). Fetches data via PostgREST from `audit_log` table.
+- **Display:** Key columns (Timestamp, User, Action, Target). Render `old_value`/`new_value` JSONB appropriately.
+- **Filtering:** Client-side or server-side filtering (via PostgREST query params) by Date Range, User, Action, Target Type.
+- **Pagination:** Implement pagination (client or server-side via PostgREST `range`).
 - **Scope:** Provides a raw log view for administrative/troubleshooting purposes in V1.
 
 ---
@@ -1103,9 +1103,9 @@ This specification (Version 3.3) provides a highly detailed and comprehensive bl
 
 - **Subscriptions:** Use Supabase client's Realtime capabilities within **Client Components** using `useEffect`. Scope subscriptions.
 - **Update Strategy:** (_Refined_)
-  - **Manual Cache Update:** Prefer `dispatch(api.util.updateQueryData(...))` for simple list updates.
-  - **Cache Invalidation:** Use `dispatch(api.util.invalidateTags([...]))` for complex changes or easier implementation.
-- Manage subscription lifecycle efficiently.
+  - **Manual Cache Update:** Prefer `dispatch(api.util.updateQueryData(...))` for simple list updates (e.g., new comment).
+  - **Cache Invalidation:** Use `dispatch(api.util.invalidateTags([...]))` for complex changes or easier implementation (e.g., task status update affecting multiple views).
+- Manage subscription lifecycle efficiently (e.g., unsubscribe in `useEffect` cleanup). Subscribe specifically (e.g., `table:tasks:id=eq.{taskId}`).
 
 ---
 
