@@ -281,8 +281,23 @@ BEGIN
         SELECT
             (page_id_map->>(dc.page_id::text))::uuid, user_id, content, is_internal
         FROM public.document_comments dc
-        WHERE page_id_map ? dc.page_id::text;
-        -- TODO: Update parent_comment_id similar to how task dependencies were handled if needed.
+        WHERE page_id_map ? dc.page_id::text
+        RETURNING id as new_comment_id, dc.id as old_comment_id, parent_comment_id as old_parent_id; -- Return old IDs
+
+        -- Build comment_id_map from CTE
+        SELECT jsonb_object_agg(old_comment_id::text, new_comment_id)
+        INTO comment_id_map
+        FROM cloned_comments;
+        RAISE NOTICE ' Comment ID Map: %', comment_id_map;
+
+        -- Update parent_comment_id using the map
+        RAISE NOTICE ' Updating document comment parent IDs...';
+        UPDATE public.document_comments new_dc
+        SET parent_comment_id = (comment_id_map->>(old_cc.old_parent_id::text))::uuid
+        FROM cloned_comments old_cc
+        WHERE new_dc.id = old_cc.new_comment_id
+          AND old_cc.old_parent_id IS NOT NULL -- Only update if there was an old parent
+          AND comment_id_map ? old_cc.old_parent_id::text; -- Ensure the old parent was cloned
 
     END;
     RAISE NOTICE 'Finished cloning documents.';

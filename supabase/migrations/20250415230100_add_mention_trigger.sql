@@ -30,12 +30,14 @@ BEGIN
             v_entity_type := 'task';
             v_entity_id := NEW.task_id;
             SELECT name, s.project_id INTO v_entity_name, v_project_id FROM public.tasks t JOIN public.sections s ON t.section_id = s.id WHERE t.id = v_entity_id;
-            notification_link := '/projects/' || v_project_id::text || '/tasks/' || v_entity_id::text || '?comment=' || NEW.id::text;
+            -- Use hash fragment format for task comment link
+            notification_link := '/app/projects/' || COALESCE(v_project_id::text, 'unknown') || '/tasks?taskId=' || v_entity_id::text || '#comment-' || NEW.id::text;
         ELSIF TG_TABLE_NAME = 'document_comments' THEN
             v_entity_type := 'document';
             v_entity_id := (SELECT document_id FROM public.pages WHERE id = NEW.page_id); -- Get document ID from page
             SELECT name, project_id INTO v_entity_name, v_project_id FROM public.documents WHERE id = v_entity_id;
-            notification_link := '/documents/' || v_entity_id::text || '?page=' || NEW.page_id::text || '&comment=' || NEW.id::text; -- Adjust link format
+             -- Use hash fragment format for document comment link
+            notification_link := '/app/documents/' || v_entity_id::text || '/pages/' || NEW.page_id::text || '#comment-' || NEW.id::text;
         ELSE
             RAISE LOG 'Mention trigger fired on unexpected table: %', TG_TABLE_NAME;
             RETURN NEW;

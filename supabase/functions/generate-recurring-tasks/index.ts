@@ -96,12 +96,10 @@ serve(async (_req) => {
         continue;
       }
 
-      // TODO(rrule): Implement robust RRULE parsing and date calculation, potentially handling edge cases.
-      // This is a placeholder - replace with actual logic using rrule library or similar
-      // Calculate the *next* occurrence date based on the *current* next_occurrence_date and the rule
       let nextOccurrence: Date | null = null;
       let subsequentOccurrence: Date | null = null;
-      try {
+
+      try { // Wrap RRULE parsing and calculation
         // --- RRULE Parsing Logic ---
         const ruleString = `DTSTART:${
           new Date(definition.next_occurrence_date).toISOString().replace(

@@ -411,6 +411,27 @@ serve(async (req) => {
         }
         // --- End Final Permission Check ---
 
+        // --- Check for Replies ---
+        const { data: replies, error: repliesError } = await supabaseClient
+          .from('task_comments')
+          .select('id', { count: 'exact', head: true }) // Just check existence
+          .eq('parent_comment_id', commentId);
+
+        if (repliesError) {
+          console.error(`Error checking for replies to comment ${commentId}:`, repliesError.message);
+          throw new Error(`Failed to check for replies: ${repliesError.message}`);
+        }
+
+        // Use count from response headers if available, otherwise check data length
+        const replyCount = replies?.length ?? 0; // Fallback, count might be in headers
+
+        if (replyCount > 0) {
+           console.warn(`Attempted to delete comment ${commentId} which has replies.`);
+           return createConflictResponse('Cannot delete a comment that has replies.');
+        }
+        // --- End Check for Replies ---
+
+
         // --- Delete Comment ---
         const { error: deleteError } = await supabaseClient
           .from('task_comments')

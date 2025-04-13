@@ -229,6 +229,51 @@ serve(async (req) => {
               ];
             }
           }
+
+          // Validate validation_rules structure (basic type checks)
+          if (newDefinitionData.validation_rules) {
+            try {
+              // Ensure it's an object
+              const rules = typeof newDefinitionData.validation_rules === 'string'
+                ? JSON.parse(newDefinitionData.validation_rules)
+                : newDefinitionData.validation_rules;
+
+              if (typeof rules !== 'object' || rules === null || Array.isArray(rules)) {
+                throw new Error('Must be a JSON object.');
+              }
+
+              // Check specific rule types
+              if (rules.required !== undefined && typeof rules.required !== 'boolean') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "required" must be a boolean.');
+              }
+              if (rules.minLength !== undefined && typeof rules.minLength !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "minLength" must be a number.');
+              }
+              if (rules.maxLength !== undefined && typeof rules.maxLength !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "maxLength" must be a number.');
+              }
+               if (rules.minValue !== undefined && typeof rules.minValue !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "minValue" must be a number.');
+              }
+              if (rules.maxValue !== undefined && typeof rules.maxValue !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "maxValue" must be a number.');
+              }
+              if (rules.pattern !== undefined && typeof rules.pattern !== 'string') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "pattern" must be a string.');
+              }
+              // Add more checks as needed for other defined rules
+
+            } catch (jsonError) {
+              errors.validation_rules = errors.validation_rules || [];
+              errors.validation_rules.push(`Invalid JSON format or structure: ${jsonError.message}`);
+            }
+          }
           // --- End Validation ---
 
           if (Object.keys(errors).length > 0) {
@@ -368,6 +413,50 @@ serve(async (req) => {
               errors.validation_rules = [
                 `Invalid JSON format: ${jsonError.message}`,
               ];
+            }
+          }
+          // Validate validation_rules structure
+          if (updateData.validation_rules !== undefined) {
+             try {
+              // Ensure it's an object
+              const rules = typeof updateData.validation_rules === 'string'
+                ? JSON.parse(updateData.validation_rules)
+                : updateData.validation_rules;
+
+              if (typeof rules !== 'object' || rules === null || Array.isArray(rules)) {
+                throw new Error('Must be a JSON object.');
+              }
+
+              // Check specific rule types
+              if (rules.required !== undefined && typeof rules.required !== 'boolean') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "required" must be a boolean.');
+              }
+              if (rules.minLength !== undefined && typeof rules.minLength !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "minLength" must be a number.');
+              }
+              if (rules.maxLength !== undefined && typeof rules.maxLength !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "maxLength" must be a number.');
+              }
+               if (rules.minValue !== undefined && typeof rules.minValue !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "minValue" must be a number.');
+              }
+              if (rules.maxValue !== undefined && typeof rules.maxValue !== 'number') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "maxValue" must be a number.');
+              }
+              if (rules.pattern !== undefined && typeof rules.pattern !== 'string') {
+                 errors.validation_rules = errors.validation_rules || [];
+                 errors.validation_rules.push('Rule "pattern" must be a string.');
+              }
+              // Add more checks as needed
+
+            } catch (jsonError) {
+              errors.validation_rules = errors.validation_rules || [];
+              errors.validation_rules.push(`Invalid JSON format or structure: ${jsonError.message}`);
             }
           }
           // --- End Validation ---

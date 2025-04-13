@@ -215,3 +215,90 @@ FOR EACH ROW
 EXECUTE FUNCTION public.award_badges_on_task_completion();
 
 COMMENT ON TRIGGER gamification_task_completion_trigger ON public.tasks IS 'Awards badges based on specific task completions when status changes to Complete.';
+
+-- 5. Create trigger function for project completion badges
+CREATE OR REPLACE FUNCTION public.award_badges_on_project_completion()
+RETURNS TRIGGER AS $$
+DECLARE
+    badge_record record;
+    v_user_name text;
+    v_badge_name text;
+    v_notification_payload jsonb;
+    v_function_url text := supabase_url() || '/functions/v1/send-notification';
+    v_internal_secret text;
+    v_auth_header jsonb;
+    v_project_owner_id uuid;
+BEGIN
+    -- Only award if project status changes TO 'Completed'
+    IF TG_OP = 'UPDATE' AND NEW.status = 'Completed' AND OLD.status <> 'Completed' THEN
+        v_project_owner_id := NEW.project_owner_id;
+
+        IF v_project_owner_id IS NULL THEN
+            RAISE LOG 'Project % completed but has no owner. Skipping project completion badge check.', NEW.id;
+            RETURN NEW;
+        END IF;
+
+        RAISE LOG 'Checking badges for project completion: project_id=%, owner_id=%', NEW.id, v_project_owner_id;
+
+        -- Get owner name for notifications
+        SELECT full_name INTO v_user_name FROM public.user_profiles WHERE user_id = v_project_owner_id;
+
+        -- Find badges awarded for completing any project
+        FOR badge_record IN
+            SELECT id, name
+            FROM public.badges
+            WHERE is_active = true
+              AND criteria->>'type' = 'project_completion'
+              -- No specific project ID check in criteria for V1
+        LOOP
+            RAISE LOG 'Found matching project completion badge: %', badge_record.id;
+
+            -- Attempt to insert into user_badges for the project owner
+            INSERT INTO public.user_badges (user_id, badge_id, context)
+            VALUES (
+                v_project_owner_id,
+                badge_record.id,
+                jsonb_build_object('project_id', NEW.id)
+            )
+            ON CONFLICT (user_id, badge_id) DO NOTHING;
+
+            IF FOUND THEN
+                RAISE LOG 'Awarded badge "%" (%) to user % for completing project %', badge_record.name, badge_record.id, v_project_owner_id, NEW.id;
+                -- Send notification
+                BEGIN
+                    SELECT decrypted_secret INTO v_internal_secret FROM supabase_vault.secrets WHERE name = 'INTERNAL_FUNCTION_SECRET';
+                    IF v_internal_secret IS NOT NULL THEN
+                        v_auth_header := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || v_internal_secret);
+                        v_notification_payload := jsonb_build_object(
+                            'recipients', jsonb_build_array(jsonb_build_object('userId', v_project_owner_id)),
+                            'type', 'in_app',
+                            'subject', 'New Badge Earned!',
+                            'message', 'Congratulations ' || COALESCE(v_user_name, 'User') || '! You earned the "' || badge_record.name || '" badge for completing project "' || NEW.name || '"!',
+                            'context', jsonb_build_object('trigger', 'badge_award', 'badge_id', badge_record.id, 'project_id', NEW.id)
+                        );
+                        PERFORM net.http_post(url := v_function_url, headers := v_auth_header, body := v_notification_payload);
+                    ELSE RAISE WARNING 'INTERNAL_FUNCTION_SECRET not found, cannot send badge notification.'; END IF;
+                EXCEPTION WHEN others THEN RAISE WARNING 'Failed to send badge notification: %', SQLERRM; END;
+            ELSE
+                RAISE LOG 'User % already has badge %.', v_project_owner_id, badge_record.id;
+            END IF;
+        END LOOP;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION public.award_badges_on_project_completion() IS 'Trigger function to award badges to the project owner based on project completion.';
+
+GRANT EXECUTE ON FUNCTION public.award_badges_on_project_completion() TO postgres;
+GRANT EXECUTE ON FUNCTION public.award_badges_on_project_completion() TO authenticated;
+
+-- 6. Apply the trigger to the projects table
+DROP TRIGGER IF EXISTS gamification_project_completion_trigger ON public.projects;
+CREATE TRIGGER gamification_project_completion_trigger
+AFTER UPDATE OF status ON public.projects -- Fire when status is updated
+FOR EACH ROW
+EXECUTE FUNCTION public.award_badges_on_project_completion();
+
+COMMENT ON TRIGGER gamification_project_completion_trigger ON public.projects IS 'Awards badges to the project owner when project status changes to Completed.';
