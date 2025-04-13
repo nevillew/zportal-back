@@ -256,10 +256,17 @@ serve(async (req) => {
               .select(
                 `*, participants:conversation_participants ( user_profiles ( user_id, full_name, avatar_url ) )`,
               )
-              .eq('id', newConversation.id)
+              .eq('id', newConversationId) // Use ID returned from RPC
               .single();
 
-          if (fetchFinalError) throw fetchFinalError; // Should not happen
+          if (fetchFinalError || !finalConversation) {
+             console.error(`Error fetching newly created conversation ${newConversationId}:`, fetchFinalError);
+             // Return a success response but indicate data fetch failed
+             return new Response(JSON.stringify({ message: "Conversation created, but failed to fetch details.", conversation_id: newConversationId }), {
+               status: 201, // Still created
+               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+             });
+          }
 
           return new Response(JSON.stringify(finalConversation), {
             status: 201,
