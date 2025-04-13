@@ -694,7 +694,12 @@ serve(async (req) => {
             `Error deleting project ${projectId}:`,
             deleteError.message,
           );
-          // TODO(db-error): Handle specific DB errors (e.g., restricted delete due to FK dependencies from sections, milestones, etc.) with appropriate 4xx status codes (e.g., 409 Conflict).
+          if (deleteError.code === '23503') { // Foreign key violation
+            return createConflictResponse(
+              'Cannot delete project with associated sections, milestones, risks, or issues.',
+            );
+          }
+          // Handle other specific DB errors
           throw deleteError;
         }
 
