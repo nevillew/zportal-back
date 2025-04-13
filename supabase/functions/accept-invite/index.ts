@@ -85,6 +85,47 @@ serve(async (req) => {
 
   // --- Main Logic ---
   try {
+    // Call the RPC function to handle the acceptance logic transactionally
+    const { data: companyId, error: rpcError } = await supabaseClient
+      .rpc('accept_invitation', {
+        p_token: token,
+        p_user_id: user.id,
+      });
+
+    if (rpcError) {
+      console.error(`Error calling accept_invitation RPC for token ${token}:`, rpcError);
+      // Handle specific errors raised by the RPC function
+      if (rpcError.message.startsWith('INVITATION_NOT_FOUND')) {
+        return createNotFoundResponse('Invitation not found.');
+      } else if (rpcError.message.startsWith('INVITATION_ALREADY_USED')) {
+        const status = rpcError.message.split(':')[1] || 'used';
+        return createGoneResponse(`Invitation already ${status}.`);
+      } else if (rpcError.message.startsWith('INVITATION_EXPIRED')) {
+        return createGoneResponse('Invitation has expired.');
+      } else if (rpcError.message.startsWith('EMAIL_MISMATCH')) {
+        return createForbiddenResponse('Authenticated user does not match the invited email address.');
+      } else {
+        // Default internal server error for other RPC errors
+        throw new Error(`RPC Error: ${rpcError.message}`);
+      }
+    }
+
+    // --- Success ---
+    console.log(
+      `Successfully accepted invitation via RPC for user ${user.id} to company ${companyId}`,
+    );
+    return new Response(
+      JSON.stringify({
+        message: 'Invitation accepted successfully.',
+        companyId: companyId,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
+
+    /* --- OLD LOGIC (Moved to RPC) ---
     // 1. Fetch Invitation by Token
     const { data: invitation, error: fetchError } = await supabaseClient
       .from('invitations')
@@ -209,8 +250,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     );
+    --- END OLD LOGIC --- */
   } catch (error) {
-    // Use the standardized internal server error response
+    // Catch errors from RPC call or other unexpected issues
     return createInternalServerErrorResponse(undefined, error);
   }
 });

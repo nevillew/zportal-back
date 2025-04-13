@@ -5,7 +5,7 @@ This document outlines the implementation plan for addressing the TODO items ide
 ## Edge Function Enhancements
 
 ### 1. `accept-invite/index.ts`
-    - [ ] **Transaction Handling:** Create a new PostgreSQL RPC function `accept_invitation(p_token text)` that performs the `company_users` insert and `invitations` update within a single transaction block. Update the `accept-invite` Edge Function to call this new RPC function, passing the token. Handle potential errors returned by the RPC.
+    - [x] **Transaction Handling:** Create a new PostgreSQL RPC function `accept_invitation(p_token text)` that performs the `company_users` insert and `invitations` update within a single transaction block. Update the `accept-invite` Edge Function to call this new RPC function, passing the token. Handle potential errors returned by the RPC.
 
 ### 2. `calendly-webhook-handler/index.ts`
     - [ ] **Vault Fetching:** Create a PostgreSQL RPC function `get_decrypted_secret(p_secret_name text)` that securely fetches a secret from `supabase_vault.secrets`. Grant necessary permissions (`USAGE` on schema `supabase_vault` to `postgres` role). Replace `Deno.env.get()` calls in the `getSecret` helper within the Edge Function with calls to this new RPC function.
