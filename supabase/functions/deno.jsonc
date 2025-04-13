@@ -3,10 +3,8 @@
     "lib": ["deno.ns", "dom", "dom.iterable", "dom.asynciterable"]
   },
   "lint": {
-    "files": {
-      "include": ["./"],
-      "exclude": ["./_shared/"] // Example: exclude shared directory if needed
-    },
+    "include": ["./"],
+    "exclude": ["./_shared/"], // Example: exclude shared directory if needed
     "rules": {
       "tags": ["recommended"],
       "include": [],
